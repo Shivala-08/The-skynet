@@ -108,6 +108,32 @@ export function PallavOS() {
     return () => window.removeEventListener(OPEN_PROJECT_EVENT, handler);
   }, [openProject]);
 
+  // Global keydown easter egg: typing "skynet" launches the Terminal window
+  useEffect(() => {
+    let typed = "";
+    const target = "skynet";
+    const handler = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (
+        activeEl &&
+        (activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          activeEl.getAttribute("contenteditable") === "true")
+      ) {
+        return;
+      }
+      if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+        typed = (typed + e.key.toLowerCase()).slice(-target.length);
+        if (typed === target) {
+          openApp("terminal");
+          typed = "";
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [openApp]);
+
   const handleTerminalOpen = useCallback(
     (target: string, cwd: Cursor): boolean => {
       const t = target.trim().toLowerCase();
