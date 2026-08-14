@@ -1116,12 +1116,19 @@ export function NetworkScene({ booted, onOpenApp }: NetworkSceneProps) {
   );
 }
 
-/** Eases camera into focus once booted */
+/**
+ * Eases camera into focus once booted — a cinematic fly-in: starts far out
+ * and slightly off-axis, then swings onto an arc into the hero framing
+ * (the reference's intro-move feel, done with a straight ease, no keyframes).
+ */
 function CameraRig({ booted, reduce }: { booted: boolean; reduce: boolean }) {
   const camera = useThree((s) => s.camera);
   const startAt = useRef<number | null>(null);
-  const from = useRef(new THREE.Vector3(0, 1.4, 9.5));
+  // Start further out and off to the side; arc into the framing below.
+  const from = useRef(new THREE.Vector3(1.8, 1.9, 12.5));
   const to = useRef(new THREE.Vector3(0, 0, 6.2));
+  // The arc's apex — the camera rises slightly mid-dive, then settles low.
+  const mid = useRef(new THREE.Vector3(0.5, 2.6, 9));
 
   useEffect(() => {
     if (reduce) camera.position.copy(to.current);
@@ -1136,10 +1143,20 @@ function CameraRig({ booted, reduce }: { booted: boolean; reduce: boolean }) {
       return;
     }
     if (startAt.current === null) startAt.current = state.clock.elapsedTime;
-    const p = Math.min(1, (state.clock.elapsedTime - startAt.current) / 1.6);
+    // Slightly slower fly-in so the arc reads as a camera move, not a cut
+    const p = Math.min(1, (state.clock.elapsedTime - startAt.current) / 1.9);
     const ease = 1 - Math.pow(1 - p, 3); // easeOutCubic
     if (p < 1) {
-      camera.position.lerpVectors(from.current, to.current, ease);
+      // Quadratic bezier through the apex: from → mid → to
+      const q = ease;
+      const a = (1 - q) * (1 - q);
+      const b = 2 * (1 - q) * q;
+      const c = q * q;
+      camera.position.set(
+        a * from.current.x + b * mid.current.x + c * to.current.x,
+        a * from.current.y + b * mid.current.y + c * to.current.y,
+        a * from.current.z + b * mid.current.z + c * to.current.z,
+      );
     } else {
       // Settled — ease back home if a click-dive left the camera elsewhere
       camera.position.lerp(to.current, 0.045);

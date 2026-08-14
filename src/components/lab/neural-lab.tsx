@@ -2,6 +2,7 @@
 
 import { Canvas } from "@react-three/fiber";
 import { NetworkScene } from "./network-scene";
+import { ColorGrade } from "./color-grade";
 import type { FloatingAppId } from "@/lib/data";
 
 type NeuralLabProps = {
@@ -26,6 +27,10 @@ export function NeuralLab({ booted, onOpenApp }: NeuralLabProps) {
         <ambientLight intensity={0.6} />
         <pointLight position={[0, 4, 5]} intensity={20} color="#4d8dff" />
         <pointLight position={[-4, -3, 3]} intensity={10} color="#8ab0ff" />
+        {/* Global color grade — one onBeforeCompile pass over every material,
+            the reference site's restraint trick. Keeps the scene inside the
+            black/white/electric-blue palette no matter what renders. */}
+        <ColorGrade />
         <NetworkScene booted={booted} onOpenApp={onOpenApp} />
       </Canvas>
     </div>
