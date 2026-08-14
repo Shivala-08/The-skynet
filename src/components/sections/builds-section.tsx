@@ -4,11 +4,13 @@ import { projects, type ProjectStatus } from "@/lib/data";
 import { OpenInFilesLink } from "@/components/os/open-in-files";
 import { Reveal } from "@/components/reveal";
 
+// Restrained status colors — only "live" gets the electric-blue accent; the
+// rest are neutral ink tones so the palette stays black/white/electric-blue.
 const statusColor: Record<ProjectStatus, string> = {
-  live: "border-emerald-400/25 bg-emerald-400/10 text-emerald-300",
-  "in development": "border-amber-400/25 bg-amber-400/10 text-amber-300",
-  concept: "border-zinc-400/25 bg-zinc-400/10 text-zinc-300",
-  hobby: "border-violet-400/25 bg-violet-400/10 text-violet-300",
+  live: "border-accent/25 bg-accent/10 text-accent-soft",
+  "in development": "border-line bg-surface-2/60 text-ink-dim",
+  concept: "border-line-soft bg-surface-2/40 text-ink-faint",
+  hobby: "border-line-soft bg-surface-2/40 text-ink-faint",
 };
 
 export function BuildsSection() {

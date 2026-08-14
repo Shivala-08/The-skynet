@@ -3,7 +3,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { sections, type FloatingAppId, type SectionId } from "@/lib/data";
 import { useClock } from "@/lib/use-clock";
-import { LogoMark, TerminalIcon } from "@/components/icons";
+import { LogoMark } from "@/components/icons";
 import { scrollToId } from "@/lib/scroll";
 import {
   clearLastHoveredLandmark,
@@ -104,18 +104,8 @@ export function TopBar({ onOpenApp }: { onOpenApp: (app: FloatingAppId) => void 
           })}
         </nav>
 
-        <button
-          type="button"
-          onClick={() => onOpenApp("terminal")}
-          className="hidden shrink-0 items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 font-mono text-[11px] text-ink-dim transition-colors hover:border-accent/40 hover:text-accent sm:flex"
-        >
-          <TerminalIcon className="h-3.5 w-3.5" />
-          terminal
-        </button>
-
         <div className="flex shrink-0 items-center gap-2 font-mono text-[11px] text-ink-faint">
           <AmbientSound />
-          <span className="hidden h-1.5 w-1.5 animate-pulse-dot rounded-full bg-accent md:block" aria-hidden="true" />
           <span className="hidden md:inline">v1.0</span>
           <span className="tabular-nums">{clock}</span>
         </div>

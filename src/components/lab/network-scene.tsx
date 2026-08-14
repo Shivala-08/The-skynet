@@ -30,7 +30,10 @@ interface Signal {
 const MAX_SIGNALS = 250;
 const MAX_GLOWS = 350;
 const WHITE = new THREE.Color("#ffffff");
-const WARM = new THREE.Color("#ffe8a3");
+// Hover tint — pale cyan instead of the old warm gold: stays inside the
+// black/white/electric-blue palette while remaining distinct from WHITE
+// (hovered = pale cyan, energised = white).
+const WARM = new THREE.Color("#bfe8ff");
 
 // Mutable simulation buffers live at module level so the pointer handlers can
 // write activation energy without React render purity concerns (same pattern
@@ -52,7 +55,10 @@ function prng(): number {
   return (_seed - 1) / 2147483646;
 }
 
-const BASE_PALETTES = ["#ffb700", "#ff5100", "#ff0044", "#00d2ff", "#4d8dff"].map(
+// Restrained palette — electric-blue family with a pale-white tail for
+// depth, matching the black/white/electric-blue design system. (The old
+// neon orange/red/pink set was flagged in the restraint audit.)
+const BASE_PALETTES = ["#4d8dff", "#6fa5ff", "#8ab0ff", "#a9d8ff", "#e0f3ff"].map(
   (hex) => new THREE.Color(hex),
 );
 
@@ -791,7 +797,7 @@ export function NetworkScene({ booted, onOpenApp }: NetworkSceneProps) {
       posAttr.needsUpdate = true;
     }
 
-    // 3. COLOURS — active neurons brighten toward white (warm gold when hovered)
+    // 3. COLOURS — active neurons brighten toward white (pale cyan when hovered)
     if (!reduce) {
       const colorAttr = (pointsRef.current?.geometry.attributes.color as THREE.BufferAttribute) ?? null;
       if (colorAttr) {
@@ -1039,7 +1045,7 @@ export function NetworkScene({ booted, onOpenApp }: NetworkSceneProps) {
           <bufferGeometry>
             <bufferAttribute attach="attributes-position" args={[new Float32Array(edges.length * 6), 3]} />
           </bufferGeometry>
-          <lineBasicMaterial color="#00c8ff" transparent opacity={0.15} />
+          <lineBasicMaterial color="#4d8dff" transparent opacity={0.15} />
         </lineSegments>
 
         {/* Firing Synapse Signal Particles */}
@@ -1082,8 +1088,8 @@ export function NetworkScene({ booted, onOpenApp }: NetworkSceneProps) {
         <mesh ref={grabbedMeshRef} visible={false}>
           <sphereGeometry args={[0.08, 16, 16]} />
           <meshStandardMaterial
-            color="#ffaa00"
-            emissive="#ffaa00"
+            color="#7fd4ff"
+            emissive="#7fd4ff"
             emissiveIntensity={3.5}
             roughness={0.1}
           />

@@ -385,9 +385,9 @@ function toneClass(tone?: Tone): string {
     case "accent":
       return "text-accent";
     case "ok":
-      return "text-emerald-400";
+      return "text-accent";
     case "err":
-      return "text-red-400";
+      return "text-red-400"; // errors stay red — universal terminal convention
     default:
       return "text-ink";
   }

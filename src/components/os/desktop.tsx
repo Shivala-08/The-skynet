@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { motion, useReducedMotion } from "framer-motion";
-import { getScrollProgress } from "@/lib/scroll-progress";
 
 // Lazy-load the 3D scene — Three.js + R3F + postprocessing (~1MB) only
 // loads after WebGL is detected and the boot screen finishes.
@@ -72,9 +71,6 @@ export function Desktop({ onOpenApp, booted }: DesktopProps) {
         aria-hidden="true"
         className="absolute inset-0 bg-grid [mask-image:radial-gradient(ellipse_75%_65%_at_50%_40%,black_35%,transparent_75%)]"
       />
-
-      {/* Scroll-driven background gradient — shifts from blue → purple → blue */}
-      <ScrollGradient />
 
       {/* 3D brain backdrop — interactive, rotates on drag, disperses on scroll */}
       {webgl && booted && <NeuralLab booted={booted} onOpenApp={onOpenApp} />}
@@ -157,57 +153,6 @@ function IconGrid({
         </motion.div>
       ))}
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// ScrollGradient — subtle radial gradient that shifts hue with scroll progress.
-// p=0.00: dark blue, p=0.35: deep purple, p=0.70: purple, p=1.00: dark blue
-// ---------------------------------------------------------------------------
-
-function ScrollGradient() {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    let raf = 0;
-    const tick = () => {
-      const p = getScrollProgress();
-      if (ref.current) {
-        // Interpolate between blue and purple based on scroll
-        // p=0: blue(77,141,255) → p=0.35: purple(120,60,200) → p=0.70: purple → p=1.00: blue
-        let r: number, g: number, b: number;
-        if (p < 0.35) {
-          const t = p / 0.35;
-          r = 77 + (120 - 77) * t;
-          g = 141 + (60 - 141) * t;
-          b = 255 + (200 - 255) * t;
-        } else if (p < 0.70) {
-          const t = (p - 0.35) / 0.35;
-          r = 120 + (100 - 120) * t;
-          g = 60 + (40 - 60) * t;
-          b = 200 + (180 - 200) * t;
-        } else {
-          const t = (p - 0.70) / 0.30;
-          r = 100 + (77 - 100) * t;
-          g = 40 + (141 - 40) * t;
-          b = 180 + (255 - 180) * t;
-        }
-        // Very subtle — opacity peaks in the middle
-        const opacity = 0.08 + Math.sin(p * Math.PI) * 0.07;
-        ref.current.style.background = `radial-gradient(ellipse 80% 60% at 50% 50%, rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${opacity}), transparent 70%)`;
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
-  return (
-    <div
-      ref={ref}
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-0 z-0 transition-opacity duration-700"
-    />
   );
 }
 
