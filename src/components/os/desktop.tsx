@@ -56,11 +56,35 @@ type DesktopProps = {
 
 export function Desktop({ onOpenApp, booted }: DesktopProps) {
   const [webgl, setWebgl] = useState<boolean | null>(null);
+  // The 3D brain is a backdrop, not content — the hero text and icon grid
+  // are DOM and need no WebGL. Mounting it right at boot makes the ~1MB
+  // three.js chunk parse on the main thread inside the interaction window
+  // (this showed up as ~360ms of blocking time in the audit). Instead, mount
+  // only when the main thread is idle, with a hard timeout so the brain
+  // always appears.
+  const [sceneReady, setSceneReady] = useState(false);
 
   useEffect(() => {
     const id = window.setTimeout(() => setWebgl(detectWebGL()), 0);
     return () => window.clearTimeout(id);
   }, []);
+
+  useEffect(() => {
+    if (!booted) return;
+    let cancelled = false;
+    const ready = () => {
+      if (!cancelled) setSceneReady(true);
+    };
+    const id =
+      typeof window.requestIdleCallback === "function"
+        ? window.requestIdleCallback(ready, { timeout: 2500 })
+        : window.setTimeout(ready, 2500);
+    return () => {
+      cancelled = true;
+      if (typeof id === "number") window.clearTimeout(id);
+      else window.cancelIdleCallback(id);
+    };
+  }, [booted]);
 
   return (
     <section
@@ -72,14 +96,15 @@ export function Desktop({ onOpenApp, booted }: DesktopProps) {
         className="absolute inset-0 bg-grid [mask-image:radial-gradient(ellipse_75%_65%_at_50%_40%,black_35%,transparent_75%)]"
       />
 
-      {/* 3D brain backdrop — interactive, rotates on drag, disperses on scroll */}
-      {webgl && booted && <NeuralLab booted={booted} onOpenApp={onOpenApp} />}
+      {/* 3D brain backdrop — interactive, rotates on drag, disperses on scroll.
+          Mounted on idle so the page is interactive before WebGL parses. */}
+      {webgl && booted && sceneReady && <NeuralLab booted={booted} onOpenApp={onOpenApp} />}
 
       {/* NEURAL CORE — train-the-network control (only when the 3D brain is live) */}
-      {webgl && booted && <TrainModel />}
+      {webgl && booted && sceneReady && <TrainModel />}
 
       {/* Hover labels for the lobe landmarks in the 3D brain */}
-      {webgl && booted && <LobeLabel />}
+      {webgl && booted && sceneReady && <LobeLabel />}
 
       <div className="pointer-events-none relative z-10 mx-auto w-full max-w-3xl px-6 pt-14 text-center sm:pt-16">
         <p className="pointer-events-auto font-mono text-xs text-accent sm:text-sm">{"// AI LAB OS · v1.0 · neural net online"}</p>
