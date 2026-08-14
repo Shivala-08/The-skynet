@@ -7,8 +7,19 @@ import { TopBar } from "./top-bar";
 import { Desktop } from "./desktop";
 import { TaskBar } from "./task-bar";
 import { FloatingWindow, type WindowState } from "./window";
-import { Terminal } from "@/components/apps/terminal";
-import { Files } from "@/components/apps/files";
+
+// The Terminal and Files apps are only mounted once their window opens
+// (FloatingWindow renders children only when `open`), and they are absent
+// from the SSR HTML — so loading their code on demand with ssr:false keeps
+// ~25KB of app code + the virtual filesystem out of the initial parse.
+const Terminal = dynamic(
+  () => import("@/components/apps/terminal").then((m) => m.Terminal),
+  { ssr: false, loading: () => null },
+);
+const Files = dynamic(
+  () => import("@/components/apps/files").then((m) => m.Files),
+  { ssr: false, loading: () => null },
+);
 import { ResearchSection } from "@/components/sections/research-section";
 import { BuildsSection } from "@/components/sections/builds-section";
 import { SystemsSection } from "@/components/sections/systems-section";
@@ -25,7 +36,10 @@ const ScrollChoreography = dynamic(
   { ssr: false, loading: () => null },
 );
 import { projects, sections, type FloatingAppId, type SectionId } from "@/lib/data";
-import { resolve, type Cursor } from "@/lib/fs";
+// Type-only import: keeps the virtual filesystem module (fs.ts) out of the
+// eager bundle — resolve() is dynamic-imported only when the terminal runs
+// `open <path>`.
+import type { Cursor } from "@/lib/fs";
 
 const DEFAULT_SIZE: Record<FloatingAppId, { w: number; h: number }> = {
   terminal: { w: 660, h: 430 },
@@ -135,7 +149,7 @@ export function PallavOS() {
   }, [openApp]);
 
   const handleTerminalOpen = useCallback(
-    (target: string, cwd: Cursor): boolean => {
+    async (target: string, cwd: Cursor): Promise<boolean> => {
       const t = target.trim().toLowerCase();
       if (t === "files" || t === "terminal") {
         openApp(t);
@@ -155,7 +169,9 @@ export function PallavOS() {
         openProject(t);
         return true;
       }
-      // Try to resolve as a relative path in the virtual filesystem
+      // Try to resolve as a relative path in the virtual filesystem.
+      // fs.ts is loaded on demand so its tree stays out of the initial parse.
+      const { resolve } = await import("@/lib/fs");
       const resolved = resolve(cwd, target);
       if (resolved) {
         setFilesPath(resolved);
