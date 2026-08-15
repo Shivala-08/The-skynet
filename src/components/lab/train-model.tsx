@@ -26,7 +26,7 @@ export function TrainModel() {
           (running
             ? "border-accent/50"
             : converged
-              ? "border-amber-400/50"
+              ? "border-ink/50"
               : "border-line-soft")
         }
       >
@@ -36,13 +36,13 @@ export function TrainModel() {
           <span
             className={
               "flex items-center gap-1.5 font-mono text-[10px] " +
-              (converged ? "text-amber-400" : active ? "text-accent" : "text-ink-faint")
+              (converged ? "text-ink" : active ? "text-accent" : "text-ink-faint")
             }
           >
             <span
               className={
                 "h-1.5 w-1.5 rounded-full " +
-                (converged ? "bg-amber-400" : active ? "animate-pulse-dot bg-accent" : "bg-ink-faint")
+                (converged ? "bg-ink" : active ? "animate-pulse-dot bg-accent" : "bg-ink-faint")
               }
             />
             {converged ? "CONVERGED" : active ? "COMPUTING" : "STANDBY"}
@@ -78,7 +78,7 @@ export function TrainModel() {
                   aria-live="polite"
                 >
                   {converged ? (
-                    <span className="text-amber-400">MODEL CONVERGED</span>
+                    <span className="text-ink">MODEL CONVERGED</span>
                   ) : (
                     "TRAINING NEURAL NETWORK"
                   )}
@@ -93,13 +93,13 @@ export function TrainModel() {
                   </div>
                   <div className="flex justify-between">
                     <span>Loss</span>
-                    <span className={converged ? "text-amber-400" : "text-accent"}>
+                    <span className={converged ? "text-ink" : "text-accent"}>
                       {t.loss.toFixed(3)} ↓
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span>Accuracy</span>
-                    <span className={converged ? "text-amber-400" : "text-accent"}>
+                    <span className={converged ? "text-ink" : "text-accent"}>
                       {accPct}% ↑
                     </span>
                   </div>
@@ -116,7 +116,7 @@ export function TrainModel() {
                   <div
                     className={
                       "h-full rounded-full transition-[width] duration-150 ease-linear " +
-                      (converged ? "bg-amber-400" : "bg-accent")
+                      (converged ? "bg-ink" : "bg-accent")
                     }
                     style={{ width: `${pct}%` }}
                   />
@@ -126,7 +126,7 @@ export function TrainModel() {
                   <button
                     type="button"
                     onClick={startTraining}
-                    className="mt-2 w-full rounded-md border border-line-soft bg-surface-2/60 px-3 py-1.5 font-mono text-[10px] tracking-[0.2em] text-ink-dim transition-all hover:border-amber-400/60 hover:bg-amber-400/10 hover:text-amber-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-400"
+                    className="mt-2 w-full rounded-md border border-line-soft bg-surface-2/60 px-3 py-1.5 font-mono text-[10px] tracking-[0.2em] text-ink-dim transition-all hover:border-ink/60 hover:bg-ink/10 hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink"
                   >
                     TRAIN AGAIN
                   </button>

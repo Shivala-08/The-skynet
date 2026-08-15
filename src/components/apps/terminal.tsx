@@ -22,10 +22,12 @@ type ExecResult = {
     question: string;
     history: { role: "user" | "assistant"; content: string }[];
   };
+  /** Set when the command needs the result of an async onOpen() call. */
+  pendingOpen?: { arg: string; cwd: Cursor };
 };
 
 type TerminalProps = {
-  onOpen: (target: string, cwd: Cursor) => boolean;
+  onOpen: (target: string, cwd: Cursor) => boolean | Promise<boolean>;
   onExit: () => void;
 };
 
@@ -87,7 +89,7 @@ function aboutLines(): Line[] {
   ];
 }
 
-function exec(raw: string, cwd: Cursor, onOpen: (t: string, cwd: Cursor) => boolean, onExit: () => void): ExecResult {
+function exec(raw: string, cwd: Cursor, onExit: () => void): ExecResult {
   const text = raw.trim();
   if (!text) return { lines: [] };
 
@@ -150,7 +152,7 @@ function exec(raw: string, cwd: Cursor, onOpen: (t: string, cwd: Cursor) => bool
       return ok(contactLines());
     case "open": {
       if (!arg) return err("open: usage: open <files | terminal | research | builds | systems | about | contact | <project>>");
-      return onOpen(arg, cwd) ? ok([{ text: `opening ${arg}…`, tone: "ok" }]) : err(`open: unknown target: ${arg}`);
+      return { lines: [], pendingOpen: { arg, cwd } };
     }
     case "ask": {
       if (!arg) return err("ask: usage: ask <your question>");
@@ -297,9 +299,22 @@ export function Terminal({ onOpen, onExit }: TerminalProps) {
 
   const submit = () => {
     const cmd = input;
-    const result = exec(cmd, cwd, onOpen, onExit);
+    const result = exec(cmd, cwd, onExit);
 
-    if (result.async) {
+    if (result.pendingOpen) {
+      // onOpen may resolve asynchronously (it can lazy-load the filesystem
+      // module), so push the prompt now and append the result when it lands.
+      setLines((prev) => [...prev, { text: cmd, prompt }]);
+      const { arg, cwd: ocwd } = result.pendingOpen;
+      Promise.resolve(onOpen(arg, ocwd)).then((opened) => {
+        setLines((prev) => [
+          ...prev,
+          opened
+            ? { text: `opening ${arg}…`, tone: "ok" as Tone }
+            : { text: `open: unknown target: ${arg}`, tone: "err" as Tone },
+        ]);
+      });
+    } else if (result.async) {
       streamAsk(result.async.question);
     } else {
       setLines((prev) => [...prev, { text: cmd, prompt }, ...result.lines]);
@@ -385,9 +400,9 @@ function toneClass(tone?: Tone): string {
     case "accent":
       return "text-accent";
     case "ok":
-      return "text-emerald-400";
+      return "text-accent";
     case "err":
-      return "text-red-400";
+      return "text-red-400"; // errors stay red — universal terminal convention
     default:
       return "text-ink";
   }

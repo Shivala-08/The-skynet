@@ -7,16 +7,28 @@ import { getScrollProgress } from "@/lib/scroll-progress";
 const STORAGE_KEY = "ailab-ambient";
 
 /**
- * Ambient sound toggle — generates a rich, atmospheric sci-fi drone via Web Audio API.
- * Default off. Persists preference in localStorage. Respects prefers-reduced-motion.
+ * Ambient sound toggle — plays dark ambient background music (music.mp3)
+ * routed through a Web Audio API lowpass filter that sweeps based on scroll.
+ * Default off. Persists preference in localStorage.
  */
 export function AmbientSound() {
   const [on, setOn] = useState(false);
   const [mounted, setMounted] = useState(false);
 
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const ctxRef = useRef<AudioContext | null>(null);
+  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const filterRef = useRef<BiquadFilterNode | null>(null);
+  const gainRef = useRef<GainNode | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const onRef = useRef(false);
+
+  // Synchronize on state with onRef for the timeout closure
   useEffect(() => {
-    // Gate for hydration — the icon must match on server & first client paint.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    onRef.current = on;
+  }, [on]);
+
+  useEffect(() => {
     setMounted(true);
     try {
       if (localStorage.getItem(STORAGE_KEY) === "1") {
@@ -25,210 +37,170 @@ export function AmbientSound() {
     } catch {
       /* ignore */
     }
+
+    // Initialize HTMLAudioElement on client mount
+    const audio = new Audio("/music.mp3");
+    audio.loop = true;
+    audio.crossOrigin = "anonymous";
+    audioRef.current = audio;
+
+    return () => {
+      audio.pause();
+      audio.src = "";
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      const ctx = ctxRef.current;
+      if (ctx) {
+        ctx.close();
+      }
+    };
   }, []);
 
-  const ctxRef = useRef<AudioContext | null>(null);
-  const gainRef = useRef<GainNode | null>(null);
-  const nodesRef = useRef<AudioNode[] | null>(null);
-  const modRef = useRef<{ sub: OscillatorNode; carrier: OscillatorNode; shimmers: OscillatorNode[]; lpf: BiquadFilterNode; bpf: BiquadFilterNode; raf: number } | null>(null);
+  const initAudio = () => {
+    if (ctxRef.current) return;
 
-  const start = useCallback(async () => {
-    if (ctxRef.current) {
-      await ctxRef.current.resume();
-      return;
-    }
-    const ctx = new AudioContext();
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    const ctx = new AudioContextClass();
     ctxRef.current = ctx;
 
-    const masterGain = ctx.createGain();
-    masterGain.gain.value = 0;
-    masterGain.connect(ctx.destination);
-    gainRef.current = masterGain;
+    const audio = audioRef.current;
+    if (!audio) return;
 
-    const allNodes: AudioNode[] = [];
+    const source = ctx.createMediaElementSource(audio);
+    sourceRef.current = source;
 
-    // --- Layer 1: Sub-bass drone (50 Hz) ---
-    const sub = ctx.createOscillator();
-    sub.type = "sine";
-    sub.frequency.value = 50;
-    const subGain = ctx.createGain();
-    subGain.gain.value = 0.12;
-    sub.connect(subGain);
-    subGain.connect(masterGain);
-    sub.start();
-    allNodes.push(sub, subGain);
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    // Start with filter fully open (20,000 Hz)
+    filter.frequency.setValueAtTime(20000, ctx.currentTime);
+    filterRef.current = filter;
 
-    // --- Layer 2: FM-modulated carrier (110 Hz ± subtle vibrato) ---
-    const carrier = ctx.createOscillator();
-    carrier.type = "sine";
-    carrier.frequency.value = 110;
-    const modulator = ctx.createOscillator();
-    modulator.type = "sine";
-    modulator.frequency.value = 0.3; // slow wobble
-    const modGain = ctx.createGain();
-    modGain.gain.value = 3; // modulation depth
-    modulator.connect(modGain);
-    modGain.connect(carrier.frequency);
-    const carrierGain = ctx.createGain();
-    carrierGain.gain.value = 0.08;
-    carrier.connect(carrierGain);
-    carrierGain.connect(masterGain);
-    modulator.start();
-    carrier.start();
-    allNodes.push(carrier, modulator, modGain, carrierGain);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gainRef.current = gain;
 
-    // --- Layer 3: Harmonic shimmer (220 Hz + 330 Hz, detuned) ---
-    for (const freq of [220, 330]) {
-      const osc = ctx.createOscillator();
-      osc.type = "triangle";
-      osc.frequency.value = freq;
-      osc.detune.value = (Math.random() - 0.5) * 10; // slight detune
-      const g = ctx.createGain();
-      g.gain.value = 0.03;
-      osc.connect(g);
-      g.connect(masterGain);
-      osc.start();
-      allNodes.push(osc, g);
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+  };
+
+  const start = useCallback(async () => {
+    initAudio();
+    const ctx = ctxRef.current;
+    const audio = audioRef.current;
+    const gain = gainRef.current;
+    if (!ctx || !audio || !gain) return;
+
+    try {
+      if (ctx.state === "suspended") {
+        await ctx.resume();
+      }
+    } catch (err) {
+      console.warn("Could not resume AudioContext", err);
     }
 
-    // --- Layer 4: Filtered noise bed (wind/texture) ---
-    const bufLen = ctx.sampleRate * 2;
-    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
-    const noise = ctx.createBufferSource();
-    noise.buffer = buf;
-    noise.loop = true;
-    const lpf = ctx.createBiquadFilter();
-    lpf.type = "lowpass";
-    lpf.frequency.value = 180;
-    lpf.Q.value = 0.7;
-    const noiseGain = ctx.createGain();
-    noiseGain.gain.value = 0.06;
-    noise.connect(lpf);
-    lpf.connect(noiseGain);
-    noiseGain.connect(masterGain);
-    noise.start();
-    allNodes.push(noise, lpf, noiseGain);
+    audio.play().catch((err) => {
+      console.warn("Audio element play failed", err);
+    });
 
-    // --- Layer 5: Phasing sweep (slow LFO on a bandpass) ---
-    const sweepOsc = ctx.createOscillator();
-    sweepOsc.type = "sine";
-    sweepOsc.frequency.value = 0.08; // very slow sweep
-    const bpf = ctx.createBiquadFilter();
-    bpf.type = "bandpass";
-    bpf.frequency.value = 400;
-    bpf.Q.value = 2;
-    sweepOsc.connect(bpf.frequency);
-    const sweepGain = ctx.createGain();
-    sweepGain.gain.value = 0.025;
-    bpf.connect(sweepGain);
-    sweepGain.connect(masterGain);
-    sweepOsc.start();
-    allNodes.push(sweepOsc, bpf, sweepGain);
+    const now = ctx.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(gain.gain.value, now);
+    // Smooth fade-in to target volume 0.35 over 2 seconds
+    gain.gain.linearRampToValueAtTime(0.35, now + 2.0);
 
-    nodesRef.current = allNodes;
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+    }
 
-    // Store refs for scroll-driven modulation
-    const shimmers = allNodes.filter((n): n is OscillatorNode => n instanceof OscillatorNode && n !== sub && n !== carrier && n !== modulator && n !== sweepOsc);
-    modRef.current = { sub, carrier, shimmers, lpf, bpf, raf: 0 };
-
-    // Fade in over 2s
-    masterGain.gain.linearRampToValueAtTime(0.045, ctx.currentTime + 2);
-
-    // Scroll-driven pitch modulation
-    let raf = 0;
     const modulate = () => {
       const p = getScrollProgress();
-      const now = ctx.currentTime;
+      const currentCtx = ctxRef.current;
+      const currentFilter = filterRef.current;
 
-      // Map scroll to pitch shift: blue(p=0) → purple(p=0.35) → muted(p=0.7) → blue(p=1)
-      // Use sin curve for smooth transitions
-      const purpleIntensity = Math.sin(p * Math.PI); // peaks at p=0.5
-      const shift = purpleIntensity * 0.15; // max 15% shift
-
-      // Sub-bass: 50 Hz → 58 Hz at peak
-      sub.frequency.linearRampToValueAtTime(50 + shift * 50, now + 0.1);
-
-      // Carrier: 110 Hz → 126 Hz at peak
-      carrier.frequency.linearRampToValueAtTime(110 + shift * 110, now + 0.1);
-
-      // Harmonic shimmer: detune shifts with scroll
-      if (modRef.current?.shimmers) {
-        modRef.current.shimmers.forEach((osc, i) => {
-          const base = i === 0 ? 220 : 330;
-          osc.frequency.linearRampToValueAtTime(base + shift * base * 0.3, now + 0.1);
-        });
+      if (currentCtx && currentFilter) {
+        const currentTime = currentCtx.currentTime;
+        // Frequency range: 20000 Hz at scroll=0, down to 700 Hz at scroll=1.
+        // We use an exponential mapping or a power mapping to make the sweep smoother
+        const targetFreq = 20000 - Math.pow(p, 1.5) * 19300;
+        currentFilter.frequency.setTargetAtTime(targetFreq, currentTime, 0.1);
       }
 
-      // Noise filter: opens up during purple phases
-      lpf.frequency.linearRampToValueAtTime(180 + purpleIntensity * 120, now + 0.1);
-
-      // Bandpass sweep: shifts center with scroll
-      bpf.frequency.linearRampToValueAtTime(400 + purpleIntensity * 200, now + 0.1);
-
-      raf = requestAnimationFrame(modulate);
+      rafRef.current = requestAnimationFrame(modulate);
     };
-    raf = requestAnimationFrame(modulate);
-
-    // Store cleanup function
-    if (modRef.current) modRef.current.raf = raf;
+    rafRef.current = requestAnimationFrame(modulate);
   }, []);
 
   const stop = useCallback(() => {
     const ctx = ctxRef.current;
+    const audio = audioRef.current;
     const gain = gainRef.current;
-    if (!ctx || !gain) return;
+    if (!ctx || !audio || !gain) return;
 
-    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1);
-    // Stop scroll modulation
-    if (modRef.current) cancelAnimationFrame(modRef.current.raf);
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+
+    const now = ctx.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(gain.gain.value, now);
+    // Smooth fade-out to 0 over 1.2 seconds
+    gain.gain.linearRampToValueAtTime(0, now + 1.2);
+
+    // Delay pausing the audio element until volume fades out completely
     setTimeout(() => {
-      nodesRef.current?.forEach((n) => {
-        try { n.disconnect(); } catch { /* already disconnected */ }
-      });
-      ctx.close();
-      ctxRef.current = null;
-      gainRef.current = null;
-      nodesRef.current = null;
+      if (!onRef.current && audioRef.current) {
+        audioRef.current.pause();
+      }
     }, 1200);
   }, []);
 
   const toggle = useCallback(() => {
     setOn((prev) => {
       const next = !prev;
-      try { localStorage.setItem(STORAGE_KEY, next ? "1" : "0"); } catch { /* ignore */ }
+      try {
+        localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
       if (next) start();
       else stop();
       return next;
     });
   }, [start, stop]);
 
-  // Cleanup on unmount.
-  useEffect(() => () => stop(), [stop]);
+  // Handle initial auto-play trigger if user had it on in previous session
+  useEffect(() => {
+    if (mounted && on) {
+      start();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted]);
 
   if (!mounted) {
     return (
       <button
         type="button"
         className="flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-surface-2 hover:text-ink"
-        aria-label="Play ambient sound"
+        aria-label="Play ambient music"
       >
         <VolumeXIcon className="h-3.5 w-3.5" />
       </button>
     );
   }
 
-  const isPlaying = on;
-
   return (
     <button
       type="button"
       onClick={toggle}
-      aria-label={isPlaying ? "Mute ambient sound" : "Play ambient sound"}
+      aria-label={on ? "Mute ambient music" : "Play ambient music"}
       className="flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-surface-2 hover:text-ink"
     >
-      {isPlaying ? <Volume2Icon className="h-3.5 w-3.5" /> : <VolumeXIcon className="h-3.5 w-3.5" />}
+      {on ? <Volume2Icon className="h-3.5 w-3.5" /> : <VolumeXIcon className="h-3.5 w-3.5" />}
     </button>
   );
 }
