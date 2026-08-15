@@ -153,4 +153,5 @@ src/
 - `antigravity-agent-build-brief.md` — full mission plan.
 - `reference-notes.md` — teardown of the quality reference site.
 - `docs/RENDERING.md` — MiniRenderer API, brain scene, hero port, verification.
+- `docs/USER-GUIDE.md` — how to use the site: the terminal, apps, sections, and easter eggs.
 - `lighthouse-live*.json` — Lighthouse audit reports from the live deploy.
