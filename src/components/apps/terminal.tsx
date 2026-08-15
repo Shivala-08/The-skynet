@@ -24,6 +24,10 @@ type ExecResult = {
   };
   /** Set when the command needs the result of an async onOpen() call. */
   pendingOpen?: { arg: string; cwd: Cursor };
+  /** Set when the command streams a deploy replay from /api/deploy. */
+  deploy?: boolean;
+  /** Set when the command fetches live site telemetry from /api/status. */
+  status?: boolean;
 };
 
 type TerminalProps = {
@@ -46,6 +50,8 @@ const HELP = [
   "  ls [path]           list directory contents",
   "  cd <path>           change directory",
   "  cat <file>          print a file",
+  "  deploy              replay the last real production build (not a live trigger)",
+  "  status              live site telemetry (commit, deploy time, visits)",
   "  open <target>       open files · terminal · a section · a project",
   "  clear               clear the terminal",
   "  exit                close the terminal",
@@ -162,6 +168,10 @@ function exec(raw: string, cwd: Cursor, onExit: () => void): ExecResult {
         async: { question: arg, history: [] },
       };
     }
+    case "deploy":
+      return { lines: [], deploy: true };
+    case "status":
+      return { lines: [], status: true };
     case "sudo":
       if (arg.toLowerCase() === "hire-skynet") {
         return ok([
@@ -205,6 +215,7 @@ export function Terminal({ onOpen, onExit }: TerminalProps) {
   const [hIdx, setHIdx] = useState(-1);
   const [isLoading, setIsLoading] = useState(false);
   const chatHistoryRef = useRef<{ role: "user" | "assistant"; content: string }[]>([]);
+  const deployingRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -299,8 +310,142 @@ export function Terminal({ onOpen, onExit }: TerminalProps) {
     }
   }, [prompt]);
 
+  // Streams the /api/deploy replay (real historical build log) into the
+  // terminal. The input stays enabled while streaming (like a real terminal
+  // job); a second `deploy` while one is running fails gracefully instead of
+  // stacking.
+  const streamDeploy = useCallback(async () => {
+    deployingRef.current = true;
+    setLines((prev) => [...prev, { text: "▸ connecting to deployforge replay…", tone: "dim" }]);
+
+    try {
+      const res = await fetch("/api/deploy");
+      if (!res.ok) {
+        setLines((prev) => [
+          ...prev.slice(0, -1),
+          { text: `deploy: replay failed (${res.status} ${res.statusText})`, tone: "err" },
+        ]);
+        return;
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) {
+        setLines((prev) => [
+          ...prev.slice(0, -1),
+          { text: "deploy: no response body", tone: "err" },
+        ]);
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        const parsed = lines
+          .map((l) => {
+            const t = l.trim();
+            if (!t) return null;
+            try {
+              return JSON.parse(t) as { text?: string; tone?: Tone };
+            } catch {
+              return null;
+            }
+          })
+          .filter((p): p is { text: string; tone?: Tone } => !!p && typeof p.text === "string");
+
+        if (parsed.length > 0) {
+          setLines((prev) => {
+            // Drop the "connecting…" line once the first log line lands.
+            const last = prev[prev.length - 1]?.text ?? "";
+            const base = last.startsWith("▸ connecting to deployforge") ? prev.slice(0, -1) : prev;
+            return [...base, ...parsed.map((p) => ({ text: p.text, tone: p.tone ?? "default" }))];
+          });
+        }
+      }
+    } catch (error) {
+      setLines((prev) => [
+        ...prev.slice(0, -1),
+        {
+          text: `deploy: replay failed — ${error instanceof Error ? error.message : "network error"}`,
+          tone: "err",
+        },
+      ]);
+    } finally {
+      deployingRef.current = false;
+    }
+  }, []);
+
+  // Fetches real site telemetry from /api/status and renders it as a panel.
+  // Every number comes from the server — commit/deploy time are baked at
+  // build time, visits are a real KV counter (shown only when live).
+  const runStatus = useCallback(async () => {
+    setLines((prev) => [...prev, { text: "▸ fetching site telemetry…", tone: "dim" }]);
+    try {
+      const res = await fetch("/api/status", { cache: "no-store" });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      const data = (await res.json()) as {
+        status: string;
+        build: { commit: string; branch: string | null; environment: string; deployedAt: string | null };
+        visits: number | null;
+        telemetry: { visitCounter: string };
+      };
+
+      const lines: Line[] = [
+        { text: "", tone: "dim" },
+        { text: "SITE TELEMETRY", tone: "accent" },
+        { text: `status       ${data.status}`, tone: "ok" },
+        { text: `environment  ${data.build.environment}`, tone: "default" },
+        { text: `commit       ${data.build.commit}${data.build.branch ? ` (${data.build.branch})` : ""}`, tone: "default" },
+        { text: `deployed     ${formatDateTime(data.build.deployedAt)}`, tone: "default" },
+        { text: `deploy age   ${formatAge(data.build.deployedAt)}`, tone: "default" },
+        {
+          text: `visits       ${data.visits != null ? data.visits.toLocaleString() : "unavailable"}`,
+          tone: data.visits != null ? "ok" : "dim",
+        },
+      ];
+      if (data.telemetry.visitCounter === "not-configured") {
+        lines.push({
+          text: "  (visit counter needs KV_REST_API_URL + KV_REST_API_TOKEN — omitted rather than faked)",
+          tone: "dim",
+        });
+      }
+      lines.push({ text: "", tone: "dim" });
+
+      setLines((prev) => [...prev.slice(0, -1), ...lines]);
+    } catch (error) {
+      setLines((prev) => [
+        ...prev.slice(0, -1),
+        {
+          text: `status: failed to fetch telemetry — ${error instanceof Error ? error.message : "network error"}`,
+          tone: "err",
+        },
+      ]);
+    }
+  }, []);
+
   const submit = () => {
     const cmd = input;
+    const word = cmd.trim().split(/\s+/)[0]?.toLowerCase();
+
+    // One replay at a time — fail gracefully, never silently.
+    if (word === "deploy" && deployingRef.current) {
+      setLines((prev) => [
+        ...prev,
+        { text: cmd, prompt },
+        { text: "deploy: a deployment replay is already running — wait for it to finish.", tone: "err" },
+      ]);
+      if (cmd.trim()) setHistory((h) => [...h, cmd]);
+      setHIdx(-1);
+      setInput("");
+      return;
+    }
+
     const result = exec(cmd, cwd, onExit);
 
     if (result.pendingOpen) {
@@ -318,6 +463,12 @@ export function Terminal({ onOpen, onExit }: TerminalProps) {
       });
     } else if (result.async) {
       streamAsk(result.async.question);
+    } else if (result.deploy) {
+      setLines((prev) => [...prev, { text: cmd, prompt }]);
+      streamDeploy();
+    } else if (result.status) {
+      setLines((prev) => [...prev, { text: cmd, prompt }]);
+      runStatus();
     } else {
       setLines((prev) => [...prev, { text: cmd, prompt }, ...result.lines]);
     }
@@ -408,4 +559,24 @@ function toneClass(tone?: Tone): string {
     default:
       return "text-ink";
   }
+}
+
+function formatDateTime(iso: string | null): string {
+  if (!iso) return "unknown";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString();
+}
+
+function formatAge(iso: string | null): string {
+  if (!iso) return "unknown";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "unknown";
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return "< 1m";
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ${mins % 60}m`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ${hrs % 24}h`;
 }
