@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { about, contact, projects, researchLog } from "@/lib/data";
 import { displayPath, getEntries, getNode, resolve, type Cursor } from "@/lib/fs";
+import { fetchSiteStatus, formatAge, formatDateTime } from "@/lib/status";
 
 type Tone = "default" | "dim" | "accent" | "ok" | "err";
 
@@ -33,6 +34,10 @@ type ExecResult = {
 type TerminalProps = {
   onOpen: (target: string, cwd: Cursor) => boolean | Promise<boolean>;
   onExit: () => void;
+  /** A command to run automatically (e.g. from the status widget). */
+  commandRequest?: string | null;
+  /** Called after commandRequest has been executed, so the parent can reset it. */
+  onCommandRequestHandled?: () => void;
 };
 
 const HELP = [
@@ -201,7 +206,7 @@ function exec(raw: string, cwd: Cursor, onExit: () => void): ExecResult {
 const PAD = "─".repeat(31);
 const BANNER = [`┌${PAD}┐`, `│   SKYNET // AI LAB OS · v1.0  │`, `└${PAD}┘`].join("\n");
 
-export function Terminal({ onOpen, onExit }: TerminalProps) {
+export function Terminal({ onOpen, onExit, commandRequest, onCommandRequestHandled }: TerminalProps) {
   const [lines, setLines] = useState<Line[]>([
     { text: BANNER, tone: "dim" },
     { text: "", tone: "dim" },
@@ -387,14 +392,7 @@ export function Terminal({ onOpen, onExit }: TerminalProps) {
   const runStatus = useCallback(async () => {
     setLines((prev) => [...prev, { text: "▸ fetching site telemetry…", tone: "dim" }]);
     try {
-      const res = await fetch("/api/status", { cache: "no-store" });
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      const data = (await res.json()) as {
-        status: string;
-        build: { commit: string; branch: string | null; environment: string; deployedAt: string | null };
-        visits: number | null;
-        telemetry: { visitCounter: string };
-      };
+      const data = await fetchSiteStatus();
 
       const lines: Line[] = [
         { text: "", tone: "dim" },
@@ -429,56 +427,72 @@ export function Terminal({ onOpen, onExit }: TerminalProps) {
     }
   }, []);
 
-  const submit = () => {
-    const cmd = input;
-    const word = cmd.trim().split(/\s+/)[0]?.toLowerCase();
+  // Executes a command string through the same path as typing it into the
+  // prompt — shared by submit() and the commandRequest prop (status widget).
+  const runCommand = useCallback(
+    (cmd: string) => {
+      const word = cmd.trim().split(/\s+/)[0]?.toLowerCase();
 
-    // One replay at a time — fail gracefully, never silently.
-    if (word === "deploy" && deployingRef.current) {
-      setLines((prev) => [
-        ...prev,
-        { text: cmd, prompt },
-        { text: "deploy: a deployment replay is already running — wait for it to finish.", tone: "err" },
-      ]);
-      if (cmd.trim()) setHistory((h) => [...h, cmd]);
-      setHIdx(-1);
-      setInput("");
-      return;
-    }
-
-    const result = exec(cmd, cwd, onExit);
-
-    if (result.pendingOpen) {
-      // onOpen may resolve asynchronously (it can lazy-load the filesystem
-      // module), so push the prompt now and append the result when it lands.
-      setLines((prev) => [...prev, { text: cmd, prompt }]);
-      const { arg, cwd: ocwd } = result.pendingOpen;
-      Promise.resolve(onOpen(arg, ocwd)).then((opened) => {
+      // One replay at a time — fail gracefully, never silently.
+      if (word === "deploy" && deployingRef.current) {
         setLines((prev) => [
           ...prev,
-          opened
-            ? { text: `opening ${arg}…`, tone: "ok" as Tone }
-            : { text: `open: unknown target: ${arg}`, tone: "err" as Tone },
+          { text: cmd, prompt },
+          { text: "deploy: a deployment replay is already running — wait for it to finish.", tone: "err" },
         ]);
-      });
-    } else if (result.async) {
-      streamAsk(result.async.question);
-    } else if (result.deploy) {
-      setLines((prev) => [...prev, { text: cmd, prompt }]);
-      streamDeploy();
-    } else if (result.status) {
-      setLines((prev) => [...prev, { text: cmd, prompt }]);
-      runStatus();
-    } else {
-      setLines((prev) => [...prev, { text: cmd, prompt }, ...result.lines]);
-    }
+        if (cmd.trim()) setHistory((h) => [...h, cmd]);
+        setHIdx(-1);
+        return;
+      }
 
-    if (result.cwd) setCwd(result.cwd);
-    if (result.clear) setLines([]);
-    if (cmd.trim()) setHistory((h) => [...h, cmd]);
-    setHIdx(-1);
+      const result = exec(cmd, cwd, onExit);
+
+      if (result.pendingOpen) {
+        // onOpen may resolve asynchronously (it can lazy-load the filesystem
+        // module), so push the prompt now and append the result when it lands.
+        setLines((prev) => [...prev, { text: cmd, prompt }]);
+        const { arg, cwd: ocwd } = result.pendingOpen;
+        Promise.resolve(onOpen(arg, ocwd)).then((opened) => {
+          setLines((prev) => [
+            ...prev,
+            opened
+              ? { text: `opening ${arg}…`, tone: "ok" as Tone }
+              : { text: `open: unknown target: ${arg}`, tone: "err" as Tone },
+          ]);
+        });
+      } else if (result.async) {
+        streamAsk(result.async.question);
+      } else if (result.deploy) {
+        setLines((prev) => [...prev, { text: cmd, prompt }]);
+        streamDeploy();
+      } else if (result.status) {
+        setLines((prev) => [...prev, { text: cmd, prompt }]);
+        runStatus();
+      } else {
+        setLines((prev) => [...prev, { text: cmd, prompt }, ...result.lines]);
+      }
+
+      if (result.cwd) setCwd(result.cwd);
+      if (result.clear) setLines([]);
+      if (cmd.trim()) setHistory((h) => [...h, cmd]);
+      setHIdx(-1);
+    },
+    [cwd, onExit, onOpen, prompt, streamAsk, streamDeploy, runStatus],
+  );
+
+  const submit = () => {
+    const cmd = input;
+    runCommand(cmd);
     setInput("");
   };
+
+  // External command request (e.g. clicking the status widget): open the
+  // terminal, run the command, then tell the parent it was handled.
+  useEffect(() => {
+    if (!commandRequest) return;
+    runCommand(commandRequest);
+    onCommandRequestHandled?.();
+  }, [commandRequest, runCommand, onCommandRequestHandled]);
 
   const navHistory = (dir: 1 | -1) => {
     if (history.length === 0) return;
@@ -561,22 +575,4 @@ function toneClass(tone?: Tone): string {
   }
 }
 
-function formatDateTime(iso: string | null): string {
-  if (!iso) return "unknown";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString();
-}
 
-function formatAge(iso: string | null): string {
-  if (!iso) return "unknown";
-  const ms = Date.now() - new Date(iso).getTime();
-  if (!Number.isFinite(ms) || ms < 0) return "unknown";
-  const mins = Math.floor(ms / 60000);
-  if (mins < 1) return "< 1m";
-  if (mins < 60) return `${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ${mins % 60}m`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d ${hrs % 24}h`;
-}

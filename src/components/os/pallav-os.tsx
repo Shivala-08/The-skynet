@@ -9,6 +9,7 @@ import { TaskBar } from "./task-bar";
 import { FloatingWindow, type WindowState } from "./window";
 import { DebugOverlay } from "./debug-overlay";
 import { ConsoleEgg } from "./console-egg";
+import { StatusWidget } from "./status-widget";
 
 // The Terminal and Files apps are only mounted once their window opens
 // (FloatingWindow renders children only when `open`), and they are absent
@@ -59,6 +60,8 @@ export function PallavOS() {
   const [booted, setBooted] = useState(false);
   const [win, setWin] = useState<Record<FloatingAppId, WindowState>>(freshWindows);
   const [filesPath, setFilesPath] = useState("/");
+  // A command to auto-run in the terminal (e.g. "status" from the widget).
+  const [terminalCommand, setTerminalCommand] = useState<string | null>(null);
   const zTop = useRef(20);
 
   const focusApp = useCallback((id: FloatingAppId) => {
@@ -196,6 +199,14 @@ export function PallavOS() {
       {!booted && <BootScreen onDone={handleBootDone} />}
 
       <DebugOverlay />
+      {booted && (
+        <StatusWidget
+          onOpenStatus={() => {
+            openApp("terminal");
+            setTerminalCommand("status");
+          }}
+        />
+      )}
       <TopBar onOpenApp={openApp} />
       <Desktop onOpenApp={openApp} booted={booted} />
 
@@ -222,7 +233,12 @@ export function PallavOS() {
         onMove={moveApp("terminal")}
         onResize={resizeApp("terminal")}
       >
-        <Terminal onOpen={handleTerminalOpen} onExit={() => closeApp("terminal")} />
+        <Terminal
+          onOpen={handleTerminalOpen}
+          onExit={() => closeApp("terminal")}
+          commandRequest={terminalCommand}
+          onCommandRequestHandled={() => setTerminalCommand(null)}
+        />
       </FloatingWindow>
 
       <FloatingWindow
