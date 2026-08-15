@@ -19,11 +19,27 @@ export const metadata: Metadata = {
   description:
     "Skynet’s AI lab, built as an operating system — a research log, live builds, system architecture and a working terminal.",
   applicationName: "SKYNET // AI LAB OS",
-  keywords: ["Skynet", "AI", "machine learning", "AI agents", "portfolio"],
+  keywords: ["Skynet", "AI", "machine learning", "AI agents", "portfolio", "Pallav Dholariya", "Creative Frontend", "WebGL"],
+  authors: [{ name: "Pallav Dholariya", url: "https://github.com/Shivala-08" }],
+  creator: "Pallav Dholariya",
+  publisher: "Pallav Dholariya",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   openGraph: {
     title: "SKYNET // AI LAB OS",
     description: "An AI/ML student’s portfolio, built as an operating system.",
     type: "website",
+    siteName: "SKYNET // AI LAB OS",
+    locale: "en_US",
     images: [
       {
         url: "/og-image.jpg",

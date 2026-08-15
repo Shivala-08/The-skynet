@@ -111,7 +111,9 @@ export function Desktop({ onOpenApp, booted }: DesktopProps) {
 
       <div className="pointer-events-none relative z-10 mx-auto w-full max-w-3xl px-6 pt-14 text-center sm:pt-16">
         <p className="pointer-events-auto font-mono text-xs text-accent sm:text-sm">{"// AI LAB OS · v1.0 · neural net online"}</p>
-        <h1 className="pointer-events-auto mt-5 text-6xl font-semibold tracking-tight text-ink sm:text-8xl">SKYNET</h1>
+        <h1 className="pointer-events-auto mt-5 text-6xl font-semibold tracking-tight text-ink sm:text-8xl">
+          <span className="sr-only">Pallav Dholariya’s Portfolio — </span>SKYNET
+        </h1>
         <p className="pointer-events-auto mx-auto mt-5 max-w-xl text-base text-ink-dim sm:text-lg">
           Judgment Day was supposed to be the finished project.
           <br />
