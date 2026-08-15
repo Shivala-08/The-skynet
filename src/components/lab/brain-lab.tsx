@@ -21,6 +21,7 @@ import { scrollToId } from "@/lib/scroll";
 import type { FloatingAppId } from "@/lib/data";
 import { advanceTraining, getTrainingStateRaw, type TrainingPhase } from "@/lib/training";
 import { setLobeLabel, setLastHoveredLandmark } from "@/lib/lobe-label";
+import { debugState, debugUniforms } from "@/lib/debug";
 
 type BrainLabProps = {
   booted: boolean;
@@ -825,13 +826,15 @@ export function BrainLab({ booted, onOpenApp }: BrainLabProps) {
       renderer.drawBackground(t);
       renderer.begin(cameraPos, cameraLookAt, groupMatrix);
 
+      // Konami debug wireframe mode — the network's structural skeleton only.
+      const wireframe = debugState.wireframe;
       renderer.updatePoints(nodeData);
       renderer.updateLines(lineData);
 
-      renderer.drawLines([0.302, 0.553, 1], stage.lineOpacity);
-      renderer.drawPoints("xyzrgb", 0.045, stage.pointOpacity, true); // nodes
+      renderer.drawLines([0.302, 0.553, 1], wireframe ? 0.9 : stage.lineOpacity);
+      if (!wireframe) renderer.drawPoints("xyzrgb", 0.045, stage.pointOpacity, true); // nodes
 
-      if (!reduce) {
+      if (!reduce && !wireframe) {
         // glows — upload then draw immediately (shared buffer)
         renderer.updatePointsPositions(glowPositions);
         renderer.drawPoints("xyz", 0.09, 0.8, true);
@@ -855,6 +858,7 @@ export function BrainLab({ booted, onOpenApp }: BrainLabProps) {
         delta,
         p,
         reduce,
+        wireframe,
         canvasW: canvas.clientWidth,
         canvasH: canvas.clientHeight,
         cameraPos,
@@ -863,6 +867,20 @@ export function BrainLab({ booted, onOpenApp }: BrainLabProps) {
       renderer.begin(cameraPos, cameraLookAt, groupMatrix);
       // Cinematic vignette over the whole frame.
       renderer.drawVignette(reduce ? 0.12 : 0.3);
+
+      // Publish the raw shader uniforms actually uploaded this frame to the
+      // debug overlay (Konami). Read after all draws so the snapshot reflects
+      // the most recent draw of each kind.
+      const snap = renderer.debugSnapshot;
+      debugUniforms.pointSize = snap.pointSize;
+      debugUniforms.pointOpacity = snap.pointOpacity;
+      debugUniforms.lineOpacity = snap.lineOpacity;
+      debugUniforms.meshEmissive = snap.meshEmissive;
+      debugUniforms.meshOpacity = snap.meshOpacity;
+      debugUniforms.rimPower = snap.rimPower;
+      debugUniforms.rimStrength = snap.rimStrength;
+      debugUniforms.uTime = snap.uTime;
+      debugUniforms.cameraPos = [snap.cameraPos[0], snap.cameraPos[1], snap.cameraPos[2]];
 
       // Lobe label projection
       const landmark = hoveredNode !== null ? nodes[hoveredNode] : undefined;

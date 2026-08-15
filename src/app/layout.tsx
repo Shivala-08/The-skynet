@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { LenisProvider } from "@/components/os/lenis-provider";
+import { PrintResume } from "@/components/print-resume";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -69,6 +70,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Film grain overlay — kills the flat-digital look without a texture asset */}
         <div aria-hidden="true" className="film-grain pointer-events-none fixed inset-0 z-[200]" />
         <LenisProvider>{children}</LenisProvider>
+        {/* Hidden on screen; becomes the entire page when printing. */}
+        <PrintResume />
       </body>
     </html>
   );

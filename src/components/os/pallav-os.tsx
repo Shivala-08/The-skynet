@@ -7,6 +7,8 @@ import { TopBar } from "./top-bar";
 import { Desktop } from "./desktop";
 import { TaskBar } from "./task-bar";
 import { FloatingWindow, type WindowState } from "./window";
+import { DebugOverlay } from "./debug-overlay";
+import { ConsoleEgg } from "./console-egg";
 
 // The Terminal and Files apps are only mounted once their window opens
 // (FloatingWindow renders children only when `open`), and they are absent
@@ -190,8 +192,10 @@ export function PallavOS() {
   return (
     <MotionConfig reducedMotion="user">
     <div id="top" className="relative min-h-dvh">
+      <ConsoleEgg />
       {!booted && <BootScreen onDone={handleBootDone} />}
 
+      <DebugOverlay />
       <TopBar onOpenApp={openApp} />
       <Desktop onOpenApp={openApp} booted={booted} />
 

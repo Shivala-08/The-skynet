@@ -578,12 +578,14 @@ export class HeroShapes {
     delta: number;
     p: number;
     reduce: boolean;
+    /** Konami debug wireframe mode — solids off, wireframes boosted. */
+    wireframe?: boolean;
     canvasW: number;
     canvasH: number;
     cameraPos: Vec3;
     cameraLookAt: Vec3;
   }): void {
-    const { t, delta, p, reduce, canvasW, canvasH, cameraPos, cameraLookAt } = opts;
+    const { t, delta, p, reduce, wireframe = false, canvasW, canvasH, cameraPos, cameraLookAt } = opts;
     const renderer = this.renderer;
 
     // Layer parallax from the old scroll camera keyframes.
@@ -762,14 +764,18 @@ export class HeroShapes {
     const sEmissive = 0.35 + this.sphereHover * 0.85 + this.pulse * 1.5;
     const sOpacity = 0.85 * sphereAlpha;
     if (sphereAlpha > 0.005) {
-      renderer.drawMeshInstance(this.sphereMesh, sphereModel, BLUE, sEmissive, sOpacity, {
-        color: LIGHT_BLUE,
-        power: 2.2 + this.sphereHover * 1.5,
-        strength: 0.5 + this.sphereHover * 0.6 + this.pulse * 0.8,
-      });
-      // Lines compose the parallax layer model in (meshes do it internally).
       const sphereWireModel = this.layerCompose(sphereModel);
-      renderer.drawLinesInstance(this.sphereWire, LIGHT_BLUE, (0.06 + this.sphereHover * 0.15) * sphereAlpha, sphereWireModel);
+      if (wireframe) {
+        renderer.drawLinesInstance(this.sphereWire, LIGHT_BLUE, 0.6 * sphereAlpha, sphereWireModel);
+      } else {
+        renderer.drawMeshInstance(this.sphereMesh, sphereModel, BLUE, sEmissive, sOpacity, {
+          color: LIGHT_BLUE,
+          power: 2.2 + this.sphereHover * 1.5,
+          strength: 0.5 + this.sphereHover * 0.6 + this.pulse * 0.8,
+        });
+        // Lines compose the parallax layer model in (meshes do it internally).
+        renderer.drawLinesInstance(this.sphereWire, LIGHT_BLUE, (0.06 + this.sphereHover * 0.15) * sphereAlpha, sphereWireModel);
+      }
     }
 
     // -- torus (solid + wire + glow ring) --
@@ -789,12 +795,16 @@ export class HeroShapes {
       );
       const tEmissive = 0.3 + this.torusProx * 0.7 + this.torusHover * 0.5;
       const tOpacity = torusAlpha * (0.4 + this.torusProx * 0.35 + this.torusHover * 0.2);
-      renderer.drawMeshInstance(this.torusMesh, torusModel, BLUE, tEmissive, tOpacity, {
-        color: LIGHT_BLUE,
-        power: 2.0 + this.torusProx * 1.5,
-        strength: 0.45 + this.torusProx * 0.7 + this.torusHover * 0.5,
-      });
-      renderer.drawLinesInstance(this.torusWire, LIGHT_BLUE, torusAlpha * (0.15 + this.torusProx * 0.2 + this.torusHover * 0.15), this.layerCompose(torusModel));
+      if (wireframe) {
+        renderer.drawLinesInstance(this.torusWire, LIGHT_BLUE, 0.55 * torusAlpha, this.layerCompose(torusModel));
+      } else {
+        renderer.drawMeshInstance(this.torusMesh, torusModel, BLUE, tEmissive, tOpacity, {
+          color: LIGHT_BLUE,
+          power: 2.0 + this.torusProx * 1.5,
+          strength: 0.45 + this.torusProx * 0.7 + this.torusHover * 0.5,
+        });
+        renderer.drawLinesInstance(this.torusWire, LIGHT_BLUE, torusAlpha * (0.15 + this.torusProx * 0.2 + this.torusHover * 0.15), this.layerCompose(torusModel));
+      }
       const ringModel = new Mat4();
       composeModel(ringModel, tPos, 0, 0, 0, tScale * 1.15, tScale * 1.15, tScale * 1.15);
       renderer.drawLinesInstance(this.torusRing, BLUE, torusAlpha * (this.torusProx * 0.3 + this.torusHover * 0.2), this.layerCompose(ringModel));
@@ -814,14 +824,18 @@ export class HeroShapes {
         iScale, iScale, iScale,
       );
       const iOpacity = icoAlpha * (0.25 + this.icoProx * 0.25 + this.icoHover * 0.2);
-      renderer.drawLinesInstance(this.icoWire, LIGHT_BLUE, iOpacity, this.layerCompose(icoModel));
-      const iSolid = new Mat4();
-      composeModel(iSolid, iPos, t * 0.05 + this.icoSpin * 0.3, t * 0.08 + p * Math.PI * 0.5 + this.icoSpin, Math.sin(t * 0.06) * 0.25 + this.icoSpin * 0.4, iScale * 0.98, iScale * 0.98, iScale * 0.98);
-      renderer.drawMeshInstance(this.icoMesh, iSolid, BLUE, 0.2 + this.icoProx * 0.8 + this.icoHover * 0.5, icoAlpha * (0.12 + this.icoProx * 0.2 + this.icoHover * 0.15), {
-        color: LIGHT_BLUE,
-        power: 2.2 + this.icoProx * 1.6,
-        strength: 0.5 + this.icoProx * 0.8 + this.icoHover * 0.5,
-      });
+      if (wireframe) {
+        renderer.drawLinesInstance(this.icoWire, LIGHT_BLUE, 0.5 * icoAlpha, this.layerCompose(icoModel));
+      } else {
+        renderer.drawLinesInstance(this.icoWire, LIGHT_BLUE, iOpacity, this.layerCompose(icoModel));
+        const iSolid = new Mat4();
+        composeModel(iSolid, iPos, t * 0.05 + this.icoSpin * 0.3, t * 0.08 + p * Math.PI * 0.5 + this.icoSpin, Math.sin(t * 0.06) * 0.25 + this.icoSpin * 0.4, iScale * 0.98, iScale * 0.98, iScale * 0.98);
+        renderer.drawMeshInstance(this.icoMesh, iSolid, BLUE, 0.2 + this.icoProx * 0.8 + this.icoHover * 0.5, icoAlpha * (0.12 + this.icoProx * 0.2 + this.icoHover * 0.15), {
+          color: LIGHT_BLUE,
+          power: 2.2 + this.icoProx * 1.6,
+          strength: 0.5 + this.icoProx * 0.8 + this.icoHover * 0.5,
+        });
+      }
       const iGlow = new Mat4();
       composeModel(iGlow, iPos, t * 0.05 + this.icoSpin * 0.3, t * 0.08 + p * Math.PI * 0.5 + this.icoSpin, Math.sin(t * 0.06) * 0.25 + this.icoSpin * 0.4, iScale * 1.2, iScale * 1.2, iScale * 1.2);
       renderer.drawLinesInstance(this.icoWire, BLUE, icoAlpha * (this.icoProx * 0.25 + this.icoHover * 0.2), this.layerCompose(iGlow));

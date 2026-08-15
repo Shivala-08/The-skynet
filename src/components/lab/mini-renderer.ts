@@ -312,6 +312,23 @@ export class MiniRenderer {
   private lightDir = new Vec3(0.2, 0.8, 0.6).normalize();
   private cameraPos = new Vec3();
 
+  /**
+   * Snapshot of the raw uniform values actually uploaded to the GPU on the
+   * most recent draw of each kind (point / line / mesh / background / camera).
+   * Fed to the Konami debug overlay — real values, not re-derived guesses.
+   */
+  debugSnapshot = {
+    pointSize: 0,
+    pointOpacity: 0,
+    lineOpacity: 0,
+    meshEmissive: 0,
+    meshOpacity: 0,
+    rimPower: 0,
+    rimStrength: 0,
+    cameraPos: [0, 0, 0] as [number, number, number],
+    uTime: 0,
+  };
+
   constructor(opts: RendererOptions) {
     this.canvas = opts.canvas;
     const gl = opts.canvas.getContext("webgl", {
@@ -498,6 +515,7 @@ export class MiniRenderer {
     const view = new Mat4().lookAt(cameraPos, lookAt);
     this.vp.multiplyMatrices(new Mat4().perspective(45, this.canvas.width / this.canvas.height, 0.1, 100), view);
     this.model.copy(model);
+    this.debugSnapshot.cameraPos = [cameraPos.x, cameraPos.y, cameraPos.z];
     gl.disable(gl.DEPTH_TEST);
   }
 
@@ -527,6 +545,8 @@ export class MiniRenderer {
     gl.uniform1f(this.pUni.uPixelRatio!, Math.min(2, this.canvas.width / (this.canvas.clientWidth || 1)));
     gl.uniform3f(this.pUni.uColor!, color[0], color[1], color[2]);
     gl.uniform1f(this.pUni.uOpacity!, opacity);
+    this.debugSnapshot.pointSize = size;
+    this.debugSnapshot.pointOpacity = opacity;
     gl.blendFunc(additive ? gl.SRC_ALPHA : gl.SRC_ALPHA, additive ? gl.ONE : gl.ONE_MINUS_SRC_ALPHA);
     gl.drawArrays(gl.POINTS, 0, inst.count);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -548,6 +568,7 @@ export class MiniRenderer {
     gl.uniformMatrix4fv(this.lUni.uMVP, false, mvp.e);
     gl.uniform3f(this.lUni.uColor!, color[0], color[1], color[2]);
     gl.uniform1f(this.lUni.uOpacity!, opacity);
+    this.debugSnapshot.lineOpacity = opacity;
     gl.drawArrays(gl.LINES, 0, inst.count);
   }
 
@@ -588,6 +609,8 @@ export class MiniRenderer {
     gl.uniform3f(this.mUni.uColor!, color[0], color[1], color[2]);
     gl.uniform3f(this.mUni.uLightDir!, this.lightDir.x, this.lightDir.y, this.lightDir.z);
     gl.uniform3f(this.mUni.uViewPos!, this.cameraPos.x, this.cameraPos.y, this.cameraPos.z);
+    const rimPower = rim ? rim.power : 3.0;
+    const rimStrength = rim ? rim.strength : 0.0;
     if (rim) {
       gl.uniform3f(this.mUni.uRimColor!, rim.color[0], rim.color[1], rim.color[2]);
       gl.uniform1f(this.mUni.uRimPower!, rim.power);
@@ -598,6 +621,10 @@ export class MiniRenderer {
     }
     gl.uniform1f(this.mUni.uEmissive!, emissive);
     gl.uniform1f(this.mUni.uOpacity!, opacity);
+    this.debugSnapshot.meshEmissive = emissive;
+    this.debugSnapshot.meshOpacity = opacity;
+    this.debugSnapshot.rimPower = rimPower;
+    this.debugSnapshot.rimStrength = rimStrength;
     gl.enable(gl.DEPTH_TEST);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, inst.idxBuf);
     gl.drawElements(gl.TRIANGLES, inst.count, gl.UNSIGNED_SHORT, 0);
@@ -616,6 +643,7 @@ export class MiniRenderer {
     gl.vertexAttribPointer(this.bgAttrs.aQuad, 2, gl.FLOAT, false, 0, 0);
     gl.uniform2f(this.bgUni.uResolution!, this.canvas.width, this.canvas.height);
     gl.uniform1f(this.bgUni.uTime!, time);
+    this.debugSnapshot.uTime = time;
     gl.disable(gl.DEPTH_TEST);
     // Never write depth — the quad sits at z=0 and would occlude every mesh
     gl.depthMask(false);
