@@ -4,8 +4,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { motion, useReducedMotion } from "framer-motion";
 
-// Lazy-load the 3D scene — Three.js + R3F + postprocessing (~1MB) only
-// loads after WebGL is detected and the boot screen finishes.
+// Lazy-load the 3D scene — the in-house MiniRenderer (~24KB) only loads
+// after WebGL is detected and the boot screen finishes.
 const NeuralLab = dynamic(() => import("@/components/lab/neural-lab").then((m) => m.NeuralLab), {
   ssr: false,
   loading: () => (
@@ -57,9 +57,8 @@ type DesktopProps = {
 export function Desktop({ onOpenApp, booted }: DesktopProps) {
   const [webgl, setWebgl] = useState<boolean | null>(null);
   // The 3D brain is a backdrop, not content — the hero text and icon grid
-  // are DOM and need no WebGL. Mounting it right at boot makes the ~1MB
-  // three.js chunk parse on the main thread inside the interaction window
-  // (this showed up as ~360ms of blocking time in the audit). Instead, mount
+  // are DOM and need no WebGL. Mounting it right at boot still parses the
+  // renderer on the main thread inside the interaction window, so mount
   // only when the main thread is idle, with a hard timeout so the brain
   // always appears.
   const [sceneReady, setSceneReady] = useState(false);
