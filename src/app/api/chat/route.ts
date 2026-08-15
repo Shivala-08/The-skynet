@@ -8,6 +8,19 @@ const RATE_LIMIT = 10;
 const WINDOW_MS = 60_000;
 const hits = new Map<string, number[]>();
 
+// --- Conversation window bounds ---
+// The client re-sends the full chat history on every turn. Cap the window so
+// long sessions never balloon the request payload or outgrow the model
+// context, and cap each message's length.
+const MAX_HISTORY = 12; // 6 exchanges
+const MAX_MESSAGE_LEN = 2_000;
+
+function boundMessages(messages: { role: string; content: string }[]) {
+  return messages
+    .slice(-MAX_HISTORY)
+    .map((m) => ({ role: m.role, content: m.content.slice(0, MAX_MESSAGE_LEN) }));
+}
+
 function rateLimit(ip: string): boolean {
   const now = Date.now();
   const timestamps = hits.get(ip) ?? [];
@@ -63,6 +76,10 @@ function streamMockResponse(text: string): Response {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
+      // Honest framing: this is a local fallback, never presented as live AI.
+      controller.enqueue(
+        encoder.encode("◌ offline fallback — the live AI model is unreachable right now. Try again in a moment.\n\n"),
+      );
       const words = text.split(/\s+/);
       for (const word of words) {
         controller.enqueue(encoder.encode(word + " "));
@@ -86,7 +103,8 @@ export async function POST(req: NextRequest) {
   }
 
   const { messages } = await req.json();
-  const userMessage = messages[messages.length - 1]?.content ?? "";
+  const bounded = boundMessages(messages ?? []);
+  const userMessage = bounded[bounded.length - 1]?.content ?? "";
 
   const apiKey = process.env.NVIDIA_API_KEY;
   if (!apiKey) {
@@ -95,7 +113,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout to fall back fast
+    const timeoutId = setTimeout(() => controller.abort(), 15_000); // first-token timeout (cold starts are slow)
 
     const response = await fetch(`${NVIDIA_BASE}/chat/completions`, {
       method: "POST",
@@ -108,7 +126,7 @@ export async function POST(req: NextRequest) {
         model: MODEL,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          ...messages,
+          ...bounded,
         ],
         temperature: 0.6,
         top_p: 0.9,

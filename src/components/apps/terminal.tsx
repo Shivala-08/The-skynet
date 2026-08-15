@@ -203,6 +203,10 @@ function exec(raw: string, cwd: Cursor, onExit: () => void): ExecResult {
   }
 }
 
+const THINKING_MARKER = '<span class="animate-thinking"';
+const DEPLOY_CONNECT_MARKER = "▸ connecting to deployforge";
+const STATUS_FETCH_MARKER = "▸ fetching site telemetry";
+
 const PAD = "─".repeat(31);
 const BANNER = [`┌${PAD}┐`, `│   SKYNET // AI LAB OS · v1.0  │`, `└${PAD}┘`].join("\n");
 
@@ -220,7 +224,10 @@ export function Terminal({ onOpen, onExit, commandRequest, onCommandRequestHandl
   const [hIdx, setHIdx] = useState(-1);
   const [isLoading, setIsLoading] = useState(false);
   const chatHistoryRef = useRef<{ role: "user" | "assistant"; content: string }[]>([]);
-  const deployingRef = useRef(false);
+  // Tracks the single in-flight async job (ask/deploy/status). These all
+  // mutate the output buffer by position, so only one may run at a time —
+  // otherwise two streams would overwrite each other's lines.
+  const busyRef = useRef<"ask" | "deploy" | "status" | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -234,6 +241,15 @@ export function Terminal({ onOpen, onExit, commandRequest, onCommandRequestHandl
   }, []);
 
   const prompt = `skynet@ailab-os:${displayPath(cwd)}$ `;
+
+  // Removes the transient status line that starts with `marker` (e.g. the
+  // "thinking…" indicator or a "▸ fetching…" line) wherever it sits in the
+  // buffer. Jobs never assume their marker is the last line, so unrelated
+  // output typed mid-stream can't make them delete the wrong line.
+  const dropLineStarting = (prev: Line[], marker: string): Line[] => {
+    const idx = prev.findIndex((l) => l.text.startsWith(marker));
+    return idx >= 0 ? prev.filter((_, i) => i !== idx) : prev;
+  };
 
   const streamAsk = useCallback(async (question: string) => {
     setIsLoading(true);
@@ -262,20 +278,27 @@ export function Terminal({ onOpen, onExit, commandRequest, onCommandRequestHandl
 
       if (!res.ok) {
         const errText = await res.text();
-        setLines((prev) => {
-          const filtered = prev.filter((_, i) => i !== prev.length - 1); // remove "thinking..."
-          return [...filtered, { text: `Error: ${errText || res.statusText}`, tone: "err" }];
-        });
+        let detail = errText || res.statusText;
+        try {
+          const parsed = JSON.parse(detail) as { error?: string };
+          if (parsed.error) detail = parsed.error;
+        } catch {
+          // Not JSON — show the raw body.
+        }
+        setLines((prev) => [
+          ...dropLineStarting(prev, THINKING_MARKER),
+          { text: `Error: ${detail}`, tone: "err" },
+        ]);
         setIsLoading(false);
         return;
       }
 
       const reader = res.body?.getReader();
       if (!reader) {
-        setLines((prev) => {
-          const filtered = prev.filter((_, i) => i !== prev.length - 1);
-          return [...filtered, { text: "Error: no response body", tone: "err" }];
-        });
+        setLines((prev) => [
+          ...dropLineStarting(prev, THINKING_MARKER),
+          { text: "Error: no response body", tone: "err" },
+        ]);
         setIsLoading(false);
         return;
       }
@@ -284,10 +307,7 @@ export function Terminal({ onOpen, onExit, commandRequest, onCommandRequestHandl
       let answer = "";
 
       // Replace "thinking..." with empty answer line
-      setLines((prev) => {
-        const filtered = prev.filter((_, i) => i !== prev.length - 1);
-        return [...filtered, { text: "", tone: "default" }];
-      });
+      setLines((prev) => [...dropLineStarting(prev, THINKING_MARKER), { text: "", tone: "default" }]);
 
       while (true) {
         const { done, value } = await reader.read();
@@ -306,12 +326,13 @@ export function Terminal({ onOpen, onExit, commandRequest, onCommandRequestHandl
       // Save to chat history
       chatHistoryRef.current = [...allMessages, { role: "assistant", content: answer }];
     } catch (error) {
-      setLines((prev) => {
-        const filtered = prev.filter((_, i) => i !== prev.length - 1);
-        return [...filtered, { text: `Error: ${error instanceof Error ? error.message : "Network error"}`, tone: "err" }];
-      });
+      setLines((prev) => [
+        ...dropLineStarting(prev, THINKING_MARKER),
+        { text: `Error: ${error instanceof Error ? error.message : "Network error"}`, tone: "err" },
+      ]);
     } finally {
       setIsLoading(false);
+      busyRef.current = null;
     }
   }, [prompt]);
 
@@ -320,7 +341,7 @@ export function Terminal({ onOpen, onExit, commandRequest, onCommandRequestHandl
   // job); a second `deploy` while one is running fails gracefully instead of
   // stacking.
   const streamDeploy = useCallback(async () => {
-    deployingRef.current = true;
+    busyRef.current = "deploy";
     setLines((prev) => [...prev, { text: "▸ connecting to deployforge replay…", tone: "dim" }]);
 
     try {
@@ -336,7 +357,7 @@ export function Terminal({ onOpen, onExit, commandRequest, onCommandRequestHandl
       const reader = res.body?.getReader();
       if (!reader) {
         setLines((prev) => [
-          ...prev.slice(0, -1),
+          ...dropLineStarting(prev, DEPLOY_CONNECT_MARKER),
           { text: "deploy: no response body", tone: "err" },
         ]);
         return;
@@ -365,24 +386,23 @@ export function Terminal({ onOpen, onExit, commandRequest, onCommandRequestHandl
           .filter((p): p is { text: string; tone?: Tone } => !!p && typeof p.text === "string");
 
         if (parsed.length > 0) {
-          setLines((prev) => {
+          setLines((prev) => [
             // Drop the "connecting…" line once the first log line lands.
-            const last = prev[prev.length - 1]?.text ?? "";
-            const base = last.startsWith("▸ connecting to deployforge") ? prev.slice(0, -1) : prev;
-            return [...base, ...parsed.map((p) => ({ text: p.text, tone: p.tone ?? "default" }))];
-          });
+            ...dropLineStarting(prev, DEPLOY_CONNECT_MARKER),
+            ...parsed.map((p) => ({ text: p.text, tone: p.tone ?? "default" })),
+          ]);
         }
       }
     } catch (error) {
       setLines((prev) => [
-        ...prev.slice(0, -1),
+        ...dropLineStarting(prev, DEPLOY_CONNECT_MARKER),
         {
           text: `deploy: replay failed — ${error instanceof Error ? error.message : "network error"}`,
           tone: "err",
         },
       ]);
     } finally {
-      deployingRef.current = false;
+      busyRef.current = null;
     }
   }, []);
 
@@ -390,6 +410,7 @@ export function Terminal({ onOpen, onExit, commandRequest, onCommandRequestHandl
   // Every number comes from the server — commit/deploy time are baked at
   // build time, visits are a real KV counter (shown only when live).
   const runStatus = useCallback(async () => {
+    busyRef.current = "status";
     setLines((prev) => [...prev, { text: "▸ fetching site telemetry…", tone: "dim" }]);
     try {
       const data = await fetchSiteStatus();
@@ -415,15 +436,17 @@ export function Terminal({ onOpen, onExit, commandRequest, onCommandRequestHandl
       }
       lines.push({ text: "", tone: "dim" });
 
-      setLines((prev) => [...prev.slice(0, -1), ...lines]);
+      setLines((prev) => [...dropLineStarting(prev, STATUS_FETCH_MARKER), ...lines]);
     } catch (error) {
       setLines((prev) => [
-        ...prev.slice(0, -1),
+        ...dropLineStarting(prev, STATUS_FETCH_MARKER),
         {
           text: `status: failed to fetch telemetry — ${error instanceof Error ? error.message : "network error"}`,
           tone: "err",
         },
       ]);
+    } finally {
+      busyRef.current = null;
     }
   }, []);
 
@@ -431,21 +454,23 @@ export function Terminal({ onOpen, onExit, commandRequest, onCommandRequestHandl
   // prompt — shared by submit() and the commandRequest prop (status widget).
   const runCommand = useCallback(
     (cmd: string) => {
-      const word = cmd.trim().split(/\s+/)[0]?.toLowerCase();
+      const result = exec(cmd, cwd, onExit);
 
-      // One replay at a time — fail gracefully, never silently.
-      if (word === "deploy" && deployingRef.current) {
+      // Async commands (ask/deploy/status) each rewrite the tail of the
+      // output buffer, so only one may run at a time. Anything sent while a
+      // job streams fails gracefully — never silently, never interleaved.
+      // The busy flag is only set once we know the command actually starts a
+      // job (e.g. `ask` with no question just prints usage and must not block).
+      const rejectBusy = (word: string) => {
         setLines((prev) => [
           ...prev,
           { text: cmd, prompt },
-          { text: "deploy: a deployment replay is already running — wait for it to finish.", tone: "err" },
+          {
+            text: `${word}: a ${busyRef.current} job is already running — wait for it to finish.`,
+            tone: "err",
+          },
         ]);
-        if (cmd.trim()) setHistory((h) => [...h, cmd]);
-        setHIdx(-1);
-        return;
-      }
-
-      const result = exec(cmd, cwd, onExit);
+      };
 
       if (result.pendingOpen) {
         // onOpen may resolve asynchronously (it can lazy-load the filesystem
@@ -461,13 +486,28 @@ export function Terminal({ onOpen, onExit, commandRequest, onCommandRequestHandl
           ]);
         });
       } else if (result.async) {
-        streamAsk(result.async.question);
+        if (busyRef.current) {
+          rejectBusy("ask");
+        } else {
+          busyRef.current = "ask";
+          streamAsk(result.async.question);
+        }
       } else if (result.deploy) {
-        setLines((prev) => [...prev, { text: cmd, prompt }]);
-        streamDeploy();
+        if (busyRef.current) {
+          rejectBusy("deploy");
+        } else {
+          busyRef.current = "deploy";
+          setLines((prev) => [...prev, { text: cmd, prompt }]);
+          streamDeploy();
+        }
       } else if (result.status) {
-        setLines((prev) => [...prev, { text: cmd, prompt }]);
-        runStatus();
+        if (busyRef.current) {
+          rejectBusy("status");
+        } else {
+          busyRef.current = "status";
+          setLines((prev) => [...prev, { text: cmd, prompt }]);
+          runStatus();
+        }
       } else {
         setLines((prev) => [...prev, { text: cmd, prompt }, ...result.lines]);
       }
