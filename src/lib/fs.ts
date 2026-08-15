@@ -76,16 +76,6 @@ const omnitrixText = [
   "A website that feels more like an operating system.",
 ].join("\n");
 
-const ben10Text = [
-  "BEN 10 OS — IMMERSIVE 3D EXPERIENCE",
-  "",
-  "- Render: real-time 3D scene with Ben 10 themed visuals",
-  "- Interact: interactive controls + dynamic UI systems",
-  "- Animate: GSAP-powered transitions and motion design",
-  "- Theme: Ben 10 visual identity woven into every element",
-  "",
-  "An immersive WebGL experience inspired by the Ben 10 universe.",
-].join("\n");
 
 const cinevaultText = [
   "CINEVAULT — THE EXPERIENCE",
@@ -142,6 +132,7 @@ const contactReadme = [
   `email    ${contact.email}`,
   `github   ${contact.github}`,
   `linkedin ${contact.linkedin}`,
+  `resume   ${contact.resume}`,
   "",
   contact.note,
 ].join("\n");
@@ -177,7 +168,6 @@ const extraFiles: Record<string, FSNode[]> = {
   synapse: [file("pipeline.txt", "txt", "0.8 KB", synapseText)],
   deployforge: [file("deploy.txt", "txt", "0.6 KB", deployforgeText)],
   "omnitrix-os": [file("experience.txt", "txt", "0.8 KB", omnitrixText)],
-  "ben-10-os": [file("experience.txt", "txt", "0.7 KB", ben10Text)],
   cinevault: [file("experience.txt", "txt", "0.6 KB", cinevaultText)],
   "marlboro-red": [file("brand.txt", "txt", "0.6 KB", marlboroText)],
 };

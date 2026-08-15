@@ -14,6 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://the-skynet.vercel.app"),
   title: "SKYNET // AI LAB OS",
   description:
     "Skynet’s AI lab, built as an operating system — a research log, live builds, system architecture and a working terminal.",
@@ -23,6 +24,20 @@ export const metadata: Metadata = {
     title: "SKYNET // AI LAB OS",
     description: "An AI/ML student’s portfolio, built as an operating system.",
     type: "website",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 675,
+        alt: "SKYNET // AI LAB OS Terminal Interface",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SKYNET // AI LAB OS",
+    description: "An AI/ML student’s portfolio, built as an operating system.",
+    images: ["/og-image.jpg"],
   },
 };
 

@@ -1,18 +1,19 @@
 import { SectionShell } from "./section-shell";
 import { contact } from "@/lib/data";
-import { GithubIcon, LinkedinIcon, MailIcon } from "@/components/icons";
+import { GithubIcon, LinkedinIcon, MailIcon, FileIcon } from "@/components/icons";
 
 const channels = [
   { label: "email", value: contact.email, href: `mailto:${contact.email}`, icon: <MailIcon className="h-4 w-4" /> },
   { label: "github", value: contact.github, href: contact.github, icon: <GithubIcon className="h-4 w-4" /> },
   { label: "linkedin", value: contact.linkedin, href: contact.linkedin, icon: <LinkedinIcon className="h-4 w-4" /> },
+  { label: "resume / cv", value: "resume.pdf", href: contact.resume, icon: <FileIcon className="h-4 w-4" /> },
 ];
 
 export function ContactSection() {
   return (
     <SectionShell id="contact" title="contact.sh" tag="// open channel">
       <p className="mb-6 max-w-2xl text-sm leading-relaxed text-ink-dim">{contact.note}</p>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         {channels.map((c) => (
           <a
             key={c.label}

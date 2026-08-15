@@ -75,6 +75,7 @@ function contactLines(): Line[] {
     { text: `email     ${contact.email}`, tone: "default" },
     { text: `github    ${contact.github}`, tone: "default" },
     { text: `linkedin  ${contact.linkedin}`, tone: "default" },
+    { text: `resume    ${contact.resume}`, tone: "default" },
     { text: "", tone: "dim" },
     { text: contact.note, tone: "dim" },
   ];
@@ -169,6 +170,7 @@ function exec(raw: string, cwd: Cursor, onExit: () => void): ExecResult {
           { text: `email     ${contact.email}`, tone: "default" },
           { text: `github    ${contact.github}`, tone: "default" },
           { text: `linkedin  ${contact.linkedin}`, tone: "default" },
+          { text: `resume    ${contact.resume}`, tone: "default" },
         ]);
       }
       return ok([{ text: "Permission denied. This incident has been reported to the lab.", tone: "err" }]);

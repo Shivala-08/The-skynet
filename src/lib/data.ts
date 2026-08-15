@@ -374,43 +374,6 @@ export const projects: Project[] = [
     ],
   },
   {
-    slug: "ben-10-os",
-    name: "Ben 10 OS",
-    tagline: "An immersive 3D web experience themed around the Ben 10 universe",
-    status: "live",
-    year: "2025",
-    description:
-      "An immersive WebGL-based interface inspired by the Ben 10 universe, transforming a traditional website into an interactive 3D experience. Real-time 3D rendering, cinematic animations, interactive controls, and dynamic UI systems built with React, Three.js, and creative frontend techniques.",
-    stack: ["React", "Three.js", "React Three Fiber", "WebGL", "GSAP", "Creative Frontend"],
-    link: "https://ben-10-os.vercel.app/",
-    pipeline: [
-      {
-        label: "Render",
-        blurb: "Real-time 3D scene with Ben 10 themed visuals.",
-        detail:
-          "Three.js renders the interface with Ben 10-inspired visuals \u2014 camera moves, transitions and object animation choreographed like a cinematic experience, not a slideshow.",
-      },
-      {
-        label: "Interact",
-        blurb: "Interactive controls and dynamic UI systems.",
-        detail:
-          "Pointer and keyboard input drive the 3D UI \u2014 selectable elements, dynamic layouts that reflow inside the scene. Interaction feels like navigating a universe, not browsing a page.",
-      },
-      {
-        label: "Animate",
-        blurb: "GSAP-powered transitions and motion design.",
-        detail:
-          "GSAP choreographs scroll-linked motion, parallax, reveal timing and easing. Layered typography and 3D elements move at different rates to build depth while staying readable.",
-      },
-      {
-        label: "Theme",
-        blurb: "Ben 10 visual identity woven into every element.",
-        detail:
-          "The Omnitrix palette, alien iconography and sci-fi aesthetic permeate the experience \u2014 not as decoration, but as the language the interface speaks.",
-      },
-    ],
-  },
-  {
     slug: "cinevault",
     name: "CineVault",
     tagline: "Cinematic movie discovery \u2014 immersive browsing, personalized exploration",
@@ -488,5 +451,6 @@ export const contact = {
   email: "pallavdholariya@gmail.com",
   github: "https://github.com/Shivala-08",
   linkedin: "https://www.linkedin.com/in/pallavdholariya",
-  note: "Best reached over email or GitHub \u2014 I read everything, I just answer slowly.",
+  resume: "/resume.pdf",
+  note: "Best reached over email or GitHub — I read everything, I just answer slowly.",
 };

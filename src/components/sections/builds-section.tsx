@@ -15,11 +15,13 @@ const statusColor: Record<ProjectStatus, string> = {
 
 export function BuildsSection() {
   const liveProjects = projects.filter((p) => p.link);
+  const numWords = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight"];
+  const numWord = numWords[projects.length] || projects.length.toString();
 
   return (
     <SectionShell id="builds" title="builds.exe" tag={`// 0${projects.length} systems`}>
       <p className="mb-8 max-w-2xl text-sm leading-relaxed text-ink-dim">
-        Five systems, each one a diagram you can walk through — click a stage to see what it actually does.
+        {numWord} systems, each one a diagram you can walk through — click a stage to see what it actually does.
         No screenshots, no mockups: the pipeline is the picture. Every project also lives on the lab
         filesystem, so you can open its folder and read the source of truth.
       </p>
