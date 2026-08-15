@@ -25,6 +25,7 @@ import { sections, type FloatingAppId } from "@/lib/data";
 import { detectWebGL } from "@/lib/webgl";
 import { TrainModel } from "@/components/lab/train-model";
 import { LobeLabel } from "@/components/lab/lobe-label";
+import { HeroTooltip } from "@/components/lab/hero-tooltip";
 import {
   AboutIcon,
   BuildsIcon,
@@ -104,6 +105,9 @@ export function Desktop({ onOpenApp, booted }: DesktopProps) {
 
       {/* Hover labels for the lobe landmarks in the 3D brain */}
       {webgl && booted && sceneReady && <LobeLabel />}
+
+      {/* Hover tooltip for the hero scene shapes (AI Core / DeployForge / Synapse) */}
+      {webgl && booted && sceneReady && <HeroTooltip />}
 
       <div className="pointer-events-none relative z-10 mx-auto w-full max-w-3xl px-6 pt-14 text-center sm:pt-16">
         <p className="pointer-events-auto font-mono text-xs text-accent sm:text-sm">{"// AI LAB OS · v1.0 · neural net online"}</p>

@@ -12,6 +12,7 @@
 
 import { useEffect, useRef } from "react";
 import { MiniRenderer } from "./mini-renderer";
+import { HeroShapes } from "./hero-shapes";
 import { Mat4, Vec3 } from "@/lib/mini-math";
 import { generateBrainNodes, generateBrainEdges, BRAIN_NODE_LIMIT } from "./network";
 import { playSphereClick, playSphereHover } from "@/lib/sounds";
@@ -147,7 +148,9 @@ export function BrainLab({ booted, onOpenApp }: BrainLabProps) {
     let renderer: MiniRenderer;
     try {
       renderer = new MiniRenderer({ canvas, dpr: 1 });
-    } catch {
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[BrainLab] MiniRenderer init failed:", err);
       return; // WebGL unavailable — the DOM fallback carries the page
     }
 
@@ -228,6 +231,9 @@ export function BrainLab({ booted, onOpenApp }: BrainLabProps) {
     renderer.updateLines(lineData);
     renderer.updatePointsPositions(signalPositions);
     renderer.buildSphere(12);
+
+    // ---- hero layer (shapes over the brain) ----
+    const heroShapes = new HeroShapes(renderer);
 
     // ---- interaction state ----
     let rotationX = 0;
@@ -386,6 +392,12 @@ export function BrainLab({ booted, onOpenApp }: BrainLabProps) {
       _cursorVelocity.y += (dy - _cursorVelocity.y) * 0.4;
       _cursorActive = true;
 
+      // Hero layer first — a click on a shape (sphere / torus / ico) is
+      // consumed there so the brain doesn't also grab a node beneath it.
+      if (heroShapes.pointerDown(ndc.x, ndc.y, canvas.clientWidth, canvas.clientHeight)) {
+        return;
+      }
+
       const planePoint = renderer.rayToPlane(ndc.x, ndc.y, 0);
       if (!planePoint) return;
       const localMousePoint = planePoint.clone();
@@ -444,6 +456,9 @@ export function BrainLab({ booted, onOpenApp }: BrainLabProps) {
       _cursorVelocity.y += (dy - _cursorVelocity.y) * 0.4;
       _cursorActive = true;
 
+      // Feed the hero layer (hover, cursor trail/glow, drag).
+      heroShapes.pointerMove(ndc.x, ndc.y, e.clientX, e.clientY);
+
       const t = stateClockTime.current;
       const stage = computeStage(getScrollProgress());
 
@@ -467,7 +482,12 @@ export function BrainLab({ booted, onOpenApp }: BrainLabProps) {
       }
 
       const now = performance.now();
-      if (grabbedNode === null && now - lastHoverCheck > 60) {
+      if (heroShapes.isHovering()) {
+        // A hero shape is under the cursor — suppress brain lobe hover so the
+        // two tooltips never fight.
+        hoveredNode = null;
+      }
+      if (grabbedNode === null && !heroShapes.isHovering() && now - lastHoverCheck > 60) {
         lastHoverCheck = now;
         const planePoint = renderer.rayToPlane(_cursor.x, _cursor.y, 0);
         if (planePoint) {
@@ -501,12 +521,14 @@ export function BrainLab({ booted, onOpenApp }: BrainLabProps) {
     const onPointerUp = () => {
       pointerDown = false;
       grabbedNode = null;
+      heroShapes.pointerUp();
     };
 
     const onPointerLeave = () => {
       _cursorActive = false;
       hoveredNode = null;
       _cursorVelocity.set(0, 0, 0);
+      heroShapes.pointerLeave();
     };
 
     // ---- frame loop ----
@@ -611,6 +633,14 @@ export function BrainLab({ booted, onOpenApp }: BrainLabProps) {
       } else {
         cameraPos.copy(camTo);
         cameraLookAt.set(0, 0, 0);
+      }
+
+      // Gentle cinematic sway — the scene breathes instead of sitting static.
+      if (!reduce && !_camZoom.active) {
+        cameraPos.x += Math.sin(t * 0.18) * 0.12 + Math.sin(t * 0.41) * 0.05;
+        cameraPos.y += Math.cos(t * 0.23) * 0.08;
+        cameraLookAt.x += Math.sin(t * 0.13) * 0.05;
+        cameraLookAt.y += Math.cos(t * 0.17) * 0.04;
       }
 
       // Spring damping for grabbed nodes
@@ -791,6 +821,8 @@ export function BrainLab({ booted, onOpenApp }: BrainLabProps) {
       // ---- render ----
       renderer.setSize(canvas.clientWidth, canvas.clientHeight);
       renderer.clear();
+      // Atmospheric backdrop: procedural nebula + starfield, then the scene.
+      renderer.drawBackground(t);
       renderer.begin(cameraPos, cameraLookAt, groupMatrix);
 
       renderer.updatePoints(nodeData);
@@ -813,6 +845,24 @@ export function BrainLab({ booted, onOpenApp }: BrainLabProps) {
         const c = tempNodeCoords[grabbedNode];
         renderer.drawSphere(c.x, c.y, c.z, 0.08, [0.498, 0.831, 1], 3.5);
       }
+
+      // Hero layer — the data sphere / torus / icosahedron + particles,
+      // drawn after the brain so the shapes layer on top. Re-begins with the
+      // layer's own (parallax) model, then restores the brain's group matrix
+      // so rayToPlane picking between frames stays group-local.
+      heroShapes.frame({
+        t,
+        delta,
+        p,
+        reduce,
+        canvasW: canvas.clientWidth,
+        canvasH: canvas.clientHeight,
+        cameraPos,
+        cameraLookAt,
+      });
+      renderer.begin(cameraPos, cameraLookAt, groupMatrix);
+      // Cinematic vignette over the whole frame.
+      renderer.drawVignette(reduce ? 0.12 : 0.3);
 
       // Lobe label projection
       const landmark = hoveredNode !== null ? nodes[hoveredNode] : undefined;

@@ -57,6 +57,13 @@ export class Vec3 {
     return this;
   }
 
+  multiplyScalar(s: number): Vec3 {
+    this.x *= s;
+    this.y *= s;
+    this.z *= s;
+    return this;
+  }
+
   lengthSq(): number {
     return this.x * this.x + this.y * this.y + this.z * this.z;
   }

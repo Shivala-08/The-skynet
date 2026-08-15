@@ -35,6 +35,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="min-h-dvh bg-canvas font-sans text-ink antialiased">
+        {/* Film grain overlay — kills the flat-digital look without a texture asset */}
+        <div aria-hidden="true" className="film-grain pointer-events-none fixed inset-0 z-[200]" />
         <LenisProvider>{children}</LenisProvider>
       </body>
     </html>

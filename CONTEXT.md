@@ -1,8 +1,9 @@
 # CONTEXT.md
 
 Project: Personal portfolio site — "Pallav // AI LAB OS"
-Stack: Next.js (App Router), React Three Fiber + drei, GSAP + ScrollTrigger,
-Framer Motion, Lenis, Tailwind. 3D assets from Blender (.glb, Draco-compressed).
+Stack: Next.js (App Router), custom WebGL renderer (no three.js — see
+docs/RENDERING.md), GSAP + ScrollTrigger, Framer Motion, Lenis, Tailwind.
+3D is procedural (generated geometry), not asset-based.
 
 Identity, not decoration: this is not "a cool 3D portfolio." It is an AI/ML
 student's portfolio built AS an interactive AI system — the neural network is
