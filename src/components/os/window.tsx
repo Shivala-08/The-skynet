@@ -82,8 +82,13 @@ export function FloatingWindow({
     const ny = Math.min(Math.max(d.oy + e.clientY - d.sy, 8), window.innerHeight - 64);
     onMove(nx, ny);
   };
-  const endDrag = () => {
+  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
     drag.current.active = false;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
   };
 
   const startResize = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -99,13 +104,18 @@ export function FloatingWindow({
     const nh = Math.min(Math.max(r.oh + e.clientY - r.sy, 240), window.innerHeight - 80);
     onResize(nw, nh);
   };
-  const endResize = () => {
+  const endResize = (e: React.PointerEvent<HTMLDivElement>) => {
     resize.current.active = false;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
   };
 
   const windowTransition = reduce
-    ? { duration: 0 }
-    : { duration: 0.22, ease: [0.32, 0.72, 0, 1] as const };
+    ? { duration: 0.15, ease: "linear" as const }
+    : { type: "spring" as const, stiffness: 150, damping: 18 };
 
   return (
     <AnimatePresence initial={false}>
@@ -117,17 +127,29 @@ export function FloatingWindow({
           aria-label={title}
           tabIndex={-1}
           inert={state.minimized}
-          className={`fixed flex flex-col overflow-hidden rounded-xl border bg-surface shadow-[0_32px_90px_-24px_rgba(0,0,0,0.9)] max-md:!left-2 max-md:!right-2 max-md:!top-16 max-md:!bottom-14 max-md:!h-auto max-md:!w-auto ${
-            focused ? "border-accent/35" : "border-line"
+          className={`fixed flex flex-col overflow-hidden rounded-xl border bg-surface shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_32px_90px_-24px_rgba(0,0,0,0.9)] max-md:!left-2 max-md:!right-2 max-md:!top-[88px] max-md:!bottom-14 max-md:!h-auto max-md:!w-auto ${
+            focused ? "border-accent/50 shadow-[0_0_24px_rgba(59,130,246,0.12),inset_0_1px_0_rgba(255,255,255,0.08)]" : "border-line"
           }`}
           style={{ left: state.x, top: state.y, width: state.w, height: state.h, zIndex: state.z }}
-          initial={{ opacity: 0, scale: 0.96, y: 10 }}
-          animate={{
-            opacity: state.minimized ? 0 : 1,
-            scale: state.minimized ? 0.97 : 1,
-            y: state.minimized ? 6 : 0,
-          }}
-          exit={{ opacity: 0, scale: 0.97, y: 6 }}
+          initial={
+            reduce
+              ? { opacity: 0 }
+              : { opacity: 0, scale: 0.96, y: 10 }
+          }
+          animate={
+            reduce
+              ? { opacity: state.minimized ? 0 : 1 }
+              : {
+                  opacity: state.minimized ? 0 : 1,
+                  scale: state.minimized ? 0.97 : 1,
+                  y: state.minimized ? 6 : 0,
+                }
+          }
+          exit={
+            reduce
+              ? { opacity: 0 }
+              : { opacity: 0, scale: 0.97, y: 6 }
+          }
           transition={windowTransition}
           onPointerDown={onFocus}
         >
@@ -138,24 +160,22 @@ export function FloatingWindow({
             onPointerUp={endDrag}
             onPointerCancel={endDrag}
           >
-            <span className="flex items-center gap-1.5" aria-hidden="true">
+            <span className="flex items-center gap-1.5">
               <button
                 type="button"
-                tabIndex={-1}
                 aria-label={`Close ${title}`}
                 onClick={onClose}
-                className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#ff5f57] transition-transform hover:scale-110"
+                className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#ff5f57] transition-all hover:scale-115 active:scale-90 focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:ring-accent focus-visible:outline-none"
               >
-                <XIcon className="h-2 w-2 text-black/70" />
+                <XIcon className="h-2 w-2 text-black/70 opacity-0 group-hover:opacity-100 hover:opacity-100 focus-visible:opacity-100" />
               </button>
               <button
                 type="button"
-                tabIndex={-1}
                 aria-label={`Minimize ${title}`}
                 onClick={onMinimize}
-                className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#febc2e] transition-transform hover:scale-110"
+                className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#febc2e] transition-all hover:scale-115 active:scale-90 focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:ring-accent focus-visible:outline-none"
               >
-                <MinusIcon className="h-2 w-2 text-black/70" />
+                <MinusIcon className="h-2 w-2 text-black/70 opacity-0 group-hover:opacity-100 hover:opacity-100 focus-visible:opacity-100" />
               </button>
             </span>
             {icon && <span className="text-ink-faint">{icon}</span>}

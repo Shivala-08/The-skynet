@@ -29,14 +29,16 @@ export function AmbientSound() {
   }, [on]);
 
   useEffect(() => {
-    setMounted(true);
-    try {
-      if (localStorage.getItem(STORAGE_KEY) === "1") {
-        setOn(true);
+    const timer = setTimeout(() => {
+      setMounted(true);
+      try {
+        if (localStorage.getItem(STORAGE_KEY) === "1") {
+          setOn(true);
+        }
+      } catch {
+        /* ignore */
       }
-    } catch {
-      /* ignore */
-    }
+    }, 0);
 
     // Initialize HTMLAudioElement on client mount
     const audio = new Audio("/music.mp3");
@@ -45,6 +47,7 @@ export function AmbientSound() {
     audioRef.current = audio;
 
     return () => {
+      clearTimeout(timer);
       audio.pause();
       audio.src = "";
       if (rafRef.current) cancelAnimationFrame(rafRef.current);

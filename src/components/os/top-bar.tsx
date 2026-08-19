@@ -73,14 +73,14 @@ export function TopBar({ onOpenApp }: { onOpenApp: (app: FloatingAppId) => void 
           <button
             type="button"
             onClick={() => onOpenApp("terminal")}
-            className="relative shrink-0 rounded-md px-2 py-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-dim transition-colors hover:bg-surface-2 hover:text-ink sm:px-2.5"
+            className="relative shrink-0 rounded-md px-2 py-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-dim transition-all active:scale-95 [@media(hover:hover)]:hover:bg-surface-2 [@media(hover:hover)]:hover:text-ink focus-visible:ring-1 focus-visible:ring-accent/50 focus-visible:outline-none sm:px-2.5"
           >
             Terminal
           </button>
           <button
             type="button"
             onClick={() => onOpenApp("files")}
-            className="relative shrink-0 rounded-md px-2 py-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-dim transition-colors hover:bg-surface-2 hover:text-ink sm:px-2.5"
+            className="relative shrink-0 rounded-md px-2 py-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-dim transition-all active:scale-95 [@media(hover:hover)]:hover:bg-surface-2 [@media(hover:hover)]:hover:text-ink focus-visible:ring-1 focus-visible:ring-accent/50 focus-visible:outline-none sm:px-2.5"
           >
             Files
           </button>
@@ -92,10 +92,10 @@ export function TopBar({ onOpenApp }: { onOpenApp: (app: FloatingAppId) => void 
                 href={`#${s.id}`}
                 aria-current={isActive ? "true" : undefined}
                 className={
-                  "relative shrink-0 rounded-md px-2 py-1.5 font-mono text-[11px] uppercase tracking-wider transition-colors hover:bg-surface-2 hover:text-ink sm:px-2.5 " +
+                  "relative shrink-0 rounded-md px-2 py-1.5 font-mono text-[11px] uppercase tracking-wider transition-all active:scale-95 focus-visible:ring-1 focus-visible:ring-accent/50 focus-visible:outline-none sm:px-2.5 " +
                   (isActive
                     ? "text-ink after:absolute after:inset-x-2 after:bottom-0.5 after:h-[2px] after:rounded-full after:bg-accent"
-                    : "text-ink-dim")
+                    : "text-ink-dim [@media(hover:hover)]:hover:bg-surface-2 [@media(hover:hover)]:hover:text-ink")
                 }
               >
                 {s.label}

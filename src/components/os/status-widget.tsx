@@ -70,14 +70,14 @@ export function StatusWidget({ onOpenStatus }: StatusWidgetProps) {
       onClick={onOpenStatus}
       aria-label="Open site status in the terminal"
       title="Open full status in the terminal"
-      className="fixed bottom-16 right-3 z-[60] cursor-pointer select-none rounded border border-line bg-surface/80 px-2.5 py-1.5 text-left font-mono text-[10px] leading-tight tracking-wide backdrop-blur-md transition-colors hover:border-accent/40 hover:bg-surface-2 focus-visible:border-accent/60"
+      className="fixed bottom-16 right-3 z-[60] cursor-pointer select-none rounded border border-line bg-surface/80 px-2.5 py-1.5 text-left font-mono text-[10px] leading-tight tracking-[0.12em] backdrop-blur-md transition-colors hover:border-accent/40 hover:bg-surface-2 focus-visible:border-accent/60"
     >
       {error ? (
         <span className="text-ink-faint">telemetry offline — retrying</span>
       ) : (
         <>
           <span className="flex items-center gap-1.5 whitespace-nowrap">
-            <span className={`h-1.5 w-1.5 rounded-full ${online ? "bg-accent" : "bg-ink-faint"}`} />
+            <span className={`h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-500" : "bg-rose-500"}`} />
             <span className="text-ink">{online ? "ONLINE" : "OFFLINE"}</span>
             <span className="text-ink-dim">·</span>
             <span className="text-accent">{commit}</span>

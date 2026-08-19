@@ -208,6 +208,52 @@ export function PallavOS() {
         />
       )}
       <TopBar onOpenApp={openApp} />
+      {booted && (
+        <div className="fixed top-12 inset-x-0 z-40 flex h-9 border-b border-line bg-surface/90 backdrop-blur-md md:hidden">
+          <button
+            type="button"
+            onClick={() => {
+              minimizeApp("terminal");
+              minimizeApp("files");
+            }}
+            className={`flex-1 font-mono text-[10px] uppercase tracking-wider text-center border-r border-line-soft transition-all active:scale-[0.97] focus-visible:ring-1 focus-visible:ring-accent/50 focus-visible:outline-none ${
+              (!win.terminal.open || win.terminal.minimized) && (!win.files.open || win.files.minimized)
+                ? "text-accent bg-accent/[0.04] font-semibold"
+                : "text-ink-dim"
+            }`}
+          >
+            Desktop
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              openApp("terminal");
+              focusApp("terminal");
+            }}
+            className={`flex-1 font-mono text-[10px] uppercase tracking-wider text-center border-r border-line-soft transition-all active:scale-[0.97] focus-visible:ring-1 focus-visible:ring-accent/50 focus-visible:outline-none ${
+              win.terminal.open && !win.terminal.minimized && win.terminal.z === topZ
+                ? "text-accent bg-accent/[0.04] font-semibold"
+                : "text-ink-dim"
+            }`}
+          >
+            Terminal
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              openApp("files");
+              focusApp("files");
+            }}
+            className={`flex-1 font-mono text-[10px] uppercase tracking-wider text-center transition-all active:scale-[0.97] focus-visible:ring-1 focus-visible:ring-accent/50 focus-visible:outline-none ${
+              win.files.open && !win.files.minimized && win.files.z === topZ
+                ? "text-accent bg-accent/[0.04] font-semibold"
+                : "text-ink-dim"
+            }`}
+          >
+            Files
+          </button>
+        </div>
+      )}
       <Desktop onOpenApp={openApp} booted={booted} />
 
       <main id="content" className="relative z-10">

@@ -77,12 +77,12 @@ export function BootScreen({ onDone }: { onDone: () => void }) {
     <div className="fixed inset-0 z-[100] overflow-hidden bg-canvas" aria-hidden="true">
       {/* Letterbox bars — slide open when the boot text finishes */}
       <div
-        className={`absolute inset-x-0 top-0 z-10 bg-black transition-[height] duration-700 ease-in-out ${
+        className={`absolute inset-x-0 top-0 z-10 bg-black transition-[height] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] ${
           leaving ? "h-0" : "h-[16dvh] min-h-24"
         }`}
       />
       <div
-        className={`absolute inset-x-0 bottom-0 z-10 bg-black transition-[height] duration-700 ease-in-out ${
+        className={`absolute inset-x-0 bottom-0 z-10 bg-black transition-[height] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] ${
           leaving ? "h-0" : "h-[16dvh] min-h-24"
         }`}
       />

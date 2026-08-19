@@ -14,11 +14,11 @@ import { useEffect, useRef } from "react";
 import { MiniRenderer } from "./mini-renderer";
 import { HeroShapes } from "./hero-shapes";
 import { Mat4, Vec3 } from "@/lib/mini-math";
-import { generateBrainNodes, generateBrainEdges, BRAIN_NODE_LIMIT } from "./network";
+import { generateBrainNodes, generateBrainEdges, BRAIN_NODE_LIMIT, NAV_NODES } from "./network";
 import { playSphereClick, playSphereHover } from "@/lib/sounds";
 import { getScrollProgress } from "@/lib/scroll-progress";
 import { scrollToId } from "@/lib/scroll";
-import type { FloatingAppId } from "@/lib/data";
+import type { FloatingAppId, SectionId } from "@/lib/data";
 import { advanceTraining, getTrainingStateRaw, type TrainingPhase } from "@/lib/training";
 import { setLobeLabel, setLastHoveredLandmark } from "@/lib/lobe-label";
 import { debugState, debugUniforms } from "@/lib/debug";
@@ -140,10 +140,11 @@ export function BrainLab({ booted, onOpenApp }: BrainLabProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateClockTime = useRef(0);
   const reduceRef = useRef(false);
-  reduceRef.current =
-    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const focusedNodeRef = useRef<number | null>(null);
 
   useEffect(() => {
+    reduceRef.current =
+      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const canvas = canvasRef.current;
     if (!canvas) return;
     let renderer: MiniRenderer;
@@ -693,11 +694,18 @@ export function BrainLab({ booted, onOpenApp }: BrainLabProps) {
       // Colors
       if (!reduce) {
         const tmp = new Vec3();
+        const isTraining = training.phase === "training";
         for (let i = 0; i < nodes.length; i++) {
-          const e = energy[i];
+          let e = energy[i];
+          if (isTraining) {
+            e = Math.min(1.0, e + (training.epoch / training.totalEpochs) * 0.45);
+          }
           if (e > 0.02) {
             tmp.set(baseColors[i * 3], baseColors[i * 3 + 1], baseColors[i * 3 + 2]);
             tmp.lerp(WHITE, Math.min(1, e));
+            if (isTraining) {
+              tmp.lerp(WHITE, (training.epoch / training.totalEpochs) * 0.35);
+            }
             if (i === hoveredNode) tmp.lerp(WARM, 0.45);
             else if (hoveredRegion && hoveredRegion[i]) tmp.lerp(WARM, 0.3);
             workingColors[i * 3] = tmp.x;
@@ -708,8 +716,6 @@ export function BrainLab({ booted, onOpenApp }: BrainLabProps) {
             workingColors[i * 3 + 1] = baseColors[i * 3 + 1];
             workingColors[i * 3 + 2] = baseColors[i * 3 + 2];
           }
-        }
-        for (let i = 0; i < nodes.length; i++) {
           nodeData[i * 6 + 3] = workingColors[i * 3];
           nodeData[i * 6 + 4] = workingColors[i * 3 + 1];
           nodeData[i * 6 + 5] = workingColors[i * 3 + 2];
@@ -769,7 +775,8 @@ export function BrainLab({ booted, onOpenApp }: BrainLabProps) {
 
       for (let i = activeSignals.length - 1; i >= 0; i--) {
         const s = activeSignals[i];
-        s.progress += delta * s.speed;
+        const speedMult = training.phase === "training" ? 1.5 + (training.epoch / training.totalEpochs) * 2.0 : 1.0;
+        s.progress += delta * s.speed * speedMult;
         if (s.progress >= 1.0) {
           if (Math.random() < 0.4 && stage.converge < 0.85) {
             const nextNode = s.endNode;
@@ -882,6 +889,15 @@ export function BrainLab({ booted, onOpenApp }: BrainLabProps) {
       debugUniforms.uTime = snap.uTime;
       debugUniforms.cameraPos = [snap.cameraPos[0], snap.cameraPos[1], snap.cameraPos[2]];
 
+      // Check keyboard focus override
+      const focusedIdx = focusedNodeRef.current;
+      if (focusedIdx !== null) {
+        hoveredNode = focusedIdx;
+        if (!reduce) {
+          energy[focusedIdx] = Math.min(1, energy[focusedIdx] + 0.1);
+        }
+      }
+
       // Lobe label projection
       const landmark = hoveredNode !== null ? nodes[hoveredNode] : undefined;
       if (hoveredNode !== null && landmark?.label) {
@@ -939,11 +955,40 @@ export function BrainLab({ booted, onOpenApp }: BrainLabProps) {
   }, [booted, onOpenApp]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 h-full w-full"
-      aria-hidden="true"
-      style={{ touchAction: "none" }}
-    />
+    <div className="relative w-full h-full">
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 h-full w-full"
+        aria-hidden="true"
+        style={{ touchAction: "none" }}
+      />
+      {/* Hidden focusable anchors for keyboard navigation & screen readers */}
+      <div className="sr-only">
+        <h2>3D Brain Landmarks</h2>
+        {NAV_NODES.map((n, i) => (
+          <button
+            key={n.id}
+            type="button"
+            onFocus={() => {
+              focusedNodeRef.current = i;
+            }}
+            onBlur={() => {
+              if (focusedNodeRef.current === i) {
+                focusedNodeRef.current = null;
+              }
+            }}
+            onClick={() => {
+              if (n.app && onOpenApp) {
+                onOpenApp(n.app);
+              } else if (n.href) {
+                scrollToId(n.id as SectionId);
+              }
+            }}
+          >
+            {n.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

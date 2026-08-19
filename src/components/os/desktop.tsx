@@ -89,7 +89,7 @@ export function Desktop({ onOpenApp, booted }: DesktopProps) {
   return (
     <section
       aria-label="Desktop"
-      className="sticky top-0 z-0 flex min-h-[calc(100dvh-6rem)] flex-col items-center overflow-hidden bg-glow pt-12"
+      className="sticky top-0 z-0 flex min-h-[calc(100dvh-6rem)] flex-col items-center overflow-hidden bg-glow pt-8 max-md:pt-[68px]"
     >
       <div
         aria-hidden="true"
@@ -109,12 +109,12 @@ export function Desktop({ onOpenApp, booted }: DesktopProps) {
       {/* Hover tooltip for the hero scene shapes (AI Core / DeployForge / Synapse) */}
       {webgl && booted && sceneReady && <HeroTooltip />}
 
-      <div className="pointer-events-none relative z-10 mx-auto w-full max-w-3xl px-6 pt-14 text-center sm:pt-16">
-        <p className="pointer-events-auto font-mono text-xs text-accent sm:text-sm">{"// AI LAB OS · v1.0 · neural net online"}</p>
-        <h1 className="pointer-events-auto mt-5 text-6xl font-semibold tracking-tight text-ink sm:text-8xl">
+      <div className="pointer-events-none relative z-10 mx-auto w-full max-w-3xl px-6 pt-8 text-center sm:pt-10">
+        <p className="pointer-events-auto font-mono text-xs tracking-[0.18em] text-accent sm:text-xs">{"// SKYNET // NEURAL CORE OS v1.0"}</p>
+        <h1 className="pointer-events-auto mt-4 text-5xl font-bold tracking-tighter text-ink sm:text-7xl">
           <span className="sr-only">Pallav Dholariya’s Portfolio — </span>SKYNET
         </h1>
-        <p className="pointer-events-auto mx-auto mt-5 max-w-xl text-base text-ink-dim sm:text-lg">
+        <p className="pointer-events-auto mx-auto mt-4 max-w-md text-xs sm:text-sm text-ink-dim leading-relaxed">
           Judgment Day was supposed to be the finished project.
           <br />
           This is the version still in training.
@@ -198,12 +198,12 @@ function DesktopItem({
   onClick?: () => void;
 }) {
   const cls =
-    "group flex w-[76px] flex-col items-center gap-2.5 rounded-lg border border-line-soft bg-surface/50 px-2 py-4 transition-all duration-150 hover:-translate-y-0.5 hover:border-accent/50 hover:bg-accent/[0.06] focus-visible:-translate-y-0.5";
+    "group flex w-[84px] flex-col items-center p-1 rounded-xl border border-line-soft bg-surface-2/20 transition-all duration-300 active:scale-95 focus-visible:ring-1 focus-visible:ring-accent focus-visible:outline-none hover:-translate-y-0.5 hover:border-accent/30 hover:bg-accent/[0.03]";
   const inner = (
-    <>
+    <div className="flex flex-col items-center w-full gap-2 px-1.5 py-3.5 bg-surface/40 rounded-[calc(0.75rem-0.25rem)] border border-white/[0.02] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-colors group-hover:bg-surface-2/30">
       <span className="text-ink-faint transition-colors group-hover:text-accent">{icon}</span>
-      <span className="text-xs text-ink-dim transition-colors group-hover:text-ink">{label}</span>
-    </>
+      <span className="text-[11px] font-medium tracking-wide text-ink-dim transition-colors group-hover:text-ink">{label}</span>
+    </div>
   );
   return href ? (
     <a href={href} className={cls}>

@@ -20,11 +20,15 @@ export function LenisProvider({ children }: { children: ReactNode }) {
   const [reduced, setReduced] = useState(false);
 
   useEffect(() => {
-    setReduced(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const isReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const timer = setTimeout(() => setReduced(isReduced), 0);
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     const onChange = (e: MediaQueryListEvent) => setReduced(e.matches);
     mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
+    return () => {
+      clearTimeout(timer);
+      mq.removeEventListener("change", onChange);
+    };
   }, []);
 
   // For reduced-motion users the instance stays mounted (stable tree, no

@@ -26,7 +26,7 @@ export function TaskBar({ windows, onOpen, onMinimize, onFocus }: TaskBarProps) 
     <footer className="fixed inset-x-0 bottom-0 z-50 flex h-12 items-center gap-2 border-t border-line bg-canvas/85 px-3 backdrop-blur-md">
       <a
         href="#top"
-        className="flex h-8 items-center gap-2 rounded-md px-2.5 font-mono text-[11px] tracking-widest text-ink transition-colors hover:bg-surface-2"
+        className="flex h-8 items-center gap-2 rounded-md px-2.5 font-mono text-[11px] tracking-widest text-ink transition-all active:scale-95 [@media(hover:hover)]:hover:bg-surface-2 focus-visible:ring-1 focus-visible:ring-accent/50 focus-visible:outline-none"
         aria-label="Skynet AI Lab OS — back to top"
       >
         <LogoMark className="h-3.5 w-3.5 text-accent" />
@@ -49,10 +49,10 @@ export function TaskBar({ windows, onOpen, onMinimize, onFocus }: TaskBarProps) 
                 else if (active) onMinimize(id);
                 else onFocus(id);
               }}
-              className={`flex h-8 items-center gap-2 rounded-md border px-2.5 font-mono text-[11px] transition-colors ${
+              className={`flex h-8 items-center gap-2 rounded-md border px-2.5 font-mono text-[11px] transition-all active:scale-95 focus-visible:ring-1 focus-visible:ring-accent/50 focus-visible:outline-none ${
                 active
                   ? "border-accent/40 bg-accent/10 text-ink"
-                  : "border-transparent text-ink-dim hover:bg-surface-2 hover:text-ink"
+                  : "border-transparent text-ink-dim [@media(hover:hover)]:hover:bg-surface-2 [@media(hover:hover)]:hover:text-ink"
               }`}
             >
               {appMeta[id].icon}
