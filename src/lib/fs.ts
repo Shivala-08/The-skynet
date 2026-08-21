@@ -10,7 +10,7 @@ export type FSNode =
   | { type: "folder"; name: string; children: FSNode[] }
   | { type: "file"; name: string; kind: "md" | "txt"; size: string; content: string };
 
-export type Cursor = string; // e.g. "/projects/udhaar-ledger"
+export type Cursor = string; // e.g. "/projects/deploy-forge"
 
 const file = (name: string, kind: "md" | "txt", size: string, content: string): FSNode => ({
   type: "file",
